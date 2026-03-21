@@ -917,18 +917,32 @@ W.openColocarPanel=function(subId,topicName,defaultFecha,defaultHora){
   const dur=tInfo?.dur||2,brk=tInfo?.brk||0,durMin=clsDurMin(dur,brk);
   const stuConTema=AD.alumnos.filter(a=>(a.peticiones||[]).some(p=>p.asignatura_id===subId&&(p.temas||[]).some(t=>t.name===topicName)));
   const div=document.createElement('div');div.id='colocar-panel';
-  div.style.cssText='position:fixed;inset:0;background:rgba(15,15,15,.92);z-index:9990;display:flex;align-items:flex-end;justify-content:center';
+  div.style.cssText='position:fixed;inset:0;background:rgba(15,15,15,.92);z-index:9990;display:flex;align-items:flex-end;justify-content:center;padding:0 0 env(safe-area-inset-bottom)';
+  // Hora inicial: validar que sea un número real
+  let initTimeStr='16:00';
+  if(defaultHora!=null&&!isNaN(defaultHora)){
+    const hh=Math.floor(defaultHora);
+    const mm=Math.round((defaultHora%1)*60);
+    initTimeStr=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+  }
   const initFecha=defaultFecha||DT[0];
-  const initHora=defaultHora!=null?fmtHoraMin(defaultHora):'16:00';
+  // Estado interno
+  div._fecha=initFecha;
+  div._time=initTimeStr;
+  // Leer hora del estado (nunca del DOM, para evitar problemas con input type=time en móvil)
+  function getHoraInicio(){
+    const parts=(div._time||'16:00').split(':');
+    const hh=parseInt(parts[0])||0;
+    const mm=parseInt(parts[1])||0;
+    return hh+mm/60;
+  }
   function renderContent(){
-    const fecha=div._fecha||initFecha;
-    const timeStr=div._time||initHora;
-    const [hh,mm]=(timeStr||'16:00').split(':').map(Number);
-    const horaInicio=hh+(mm||0)/60;
+    const fecha=div._fecha;
+    const horaInicio=getHoraInicio();
     const startMin=Math.round(horaInicio*60),endMin=startMin+durMin;
-    // Teacher conflict check (5-min gap, integer arithmetic)
-    const teacher=sub?.t;
     const TRANS=5;
+    const teacher=sub?.t||'';
+    // Teacher conflict
     const teacherConflicts=AD.clases.filter(c=>c.fecha===fecha&&SJ.find(s=>s.id===c.asignatura_id)?.t===teacher).filter(c=>{
       const cS=Math.round(c.hora_inicio*60),cE=cS+clsDurMin(c.duracion_horas,c.descanso_min);
       return startMin<cE+TRANS&&endMin+TRANS>cS;
@@ -939,34 +953,34 @@ W.openColocarPanel=function(subId,topicName,defaultFecha,defaultHora){
     // Session validation
     const sessions=getDaySessions(fecha);
     const inSess=sessions.some(s=>startMin>=s.start&&endMin<=s.end);
+    const canCreate=inSess&&!teacherConflicts.length&&stuLibres.length>=2;
     // Warnings
     let warnH='';
     if(!inSess)warnH+=`<div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--red);margin-bottom:6px">⛔ Fuera del horario permitido (mañana 8-14h, tarde 16-22h)</div>`;
-    if(teacherConflicts.length)warnH+=`<div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--warn);margin-bottom:6px">⚠️ Solape con ${esc(teacher)}: ${teacherConflicts.map(c=>`${c.tema} ${fmtHoraMin(c.hora_inicio)}–${endTime(c.hora_inicio,c.duracion_horas,c.descanso_min)}`).join(', ')}</div>`;
-    if(stuOcupados.length)warnH+=`<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--warn);margin-bottom:6px">⚠️ Ocupados: ${stuOcupados.map(a=>esc(a.nombre)).join(', ')}</div>`;
-    const canCreate=inSess&&stuLibres.length>=2;
-    div.querySelector('.cp-inner').innerHTML=`
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-<div><div style="font-size:13px;font-weight:700;color:${sub?.a||'var(--gold)'}">${sub?.e||''} ${sub?.n||''}</div><div style="font-size:15px;font-weight:700">${esc(topicName)}</div><div style="font-size:11px;color:var(--t3)">⏱ ${fmtDur(dur)}${brk?` + ${brk}min`:''}  · ${stuConTema.length} alumnos lo pidieron</div></div>
-<button id="cp-close" style="background:none;border:none;color:var(--t2);cursor:pointer;font-size:20px;padding:0">✕</button></div>
-<div style="display:flex;gap:6px;margin-bottom:6px">
-<select id="cp-fecha" class="inp" style="flex:1;font-size:12px">${DT.map(d=>`<option value="${d}" ${d===fecha?'selected':''}>${fl(d)}</option>`).join('')}</select>
-<input type="time" id="cp-time" class="inp" value="${timeStr}" style="width:90px;font-size:12px">
-</div>
-${warnH}
-<div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:4px">Alumnos libres en ese horario (${stuLibres.length}):</div>
-<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">${stuConTema.map(a=>{const libre=stuLibres.includes(a);return`<span style="padding:3px 8px;border-radius:5px;font-size:10px;background:${libre?(sub?.bg||'var(--card2)'):'var(--card2)'};border:1px solid ${libre?(sub?.a||'var(--brd)')+'40':'var(--brd)'};color:${libre?(sub?.a||'var(--t)'):'var(--t3)'}">${esc(a.nombre)}${libre?' ✓':' ✗'}</span>`}).join('')}</div>
-<button id="cp-crear" class="btn btn-g" style="width:100%;padding:12px;opacity:${canCreate?1:0.4}" ${canCreate?'':''}>Crear clase con ${stuLibres.length} alumnos ${!canCreate&&stuLibres.length<2?'(faltan alumnos)':!canCreate?'(horario inválido)':''}</button>`;
-    div.querySelector('#cp-close')?.addEventListener('click',()=>div.remove());
-    div.querySelector('#cp-fecha')?.addEventListener('change',function(){div._fecha=this.value;renderContent()});
-    div.querySelector('#cp-time')?.addEventListener('change',function(){div._time=this.value;renderContent()});
-    div.querySelector('#cp-crear')?.addEventListener('click',async function(){
-      if(!canCreate)return;
+    teacherConflicts.forEach(c=>{warnH+=`<div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--warn);margin-bottom:6px">⚠️ Solape con prof. ${esc(teacher)}: ${esc(c.tema)} ${fmtHoraMin(c.hora_inicio)}–${endTime(c.hora_inicio,c.duracion_horas,c.descanso_min)}</div>`});
+    if(stuOcupados.length)warnH+=`<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--warn);margin-bottom:6px">⚠️ Ocupados en ese horario: ${stuOcupados.map(a=>esc(a.nombre)).join(', ')}</div>`;
+    const inner=div.querySelector('.cp-inner');
+    inner.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div><div style="font-size:13px;font-weight:700;color:${sub?.a||'var(--gold)'}">${sub?.e||''} ${sub?.n||''}</div><div style="font-size:15px;font-weight:700">${esc(topicName)}</div><div style="font-size:11px;color:var(--t3)">⏱ ${fmtDur(dur)}${brk?' + '+brk+'min':''} · ${stuConTema.length} alumnos lo pidieron</div></div><button id="cp-x" style="background:none;border:none;color:var(--t2);cursor:pointer;font-size:22px;padding:4px;min-width:44px;text-align:right">✕</button></div>
+<div style="display:flex;gap:6px;margin-bottom:8px"><select id="cp-fecha" class="inp" style="flex:1;font-size:12px">${DT.map(d=>`<option value="${d}">${fl(d)}</option>`).join('')}</select><input type="time" id="cp-time" class="inp" style="width:90px;font-size:12px"></div>
+${warnH}<div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:4px">Alumnos libres (${stuLibres.length} de ${stuConTema.length}):</div>
+<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">${stuConTema.map(a=>{const ok=stuLibres.some(x=>x.id===a.id);return`<span style="padding:3px 8px;border-radius:5px;font-size:10px;background:${ok?(sub?.bg||'var(--card2)'):'var(--card2)'};border:1px solid ${ok?((sub?.a||'#888')+'40'):'var(--brd)'};color:${ok?(sub?.a||'var(--t)'):'var(--t3)'}">${esc(a.nombre)} ${ok?'✓':'✗'}</span>`}).join('')}</div>
+<button id="cp-crear" class="btn btn-g" style="width:100%;padding:12px;${!canCreate?'opacity:0.45;':''}">Crear clase con ${stuLibres.length} alumnos${!inSess?' — horario inválido':stuLibres.length<2?' — faltan alumnos':''}</button>`;
+    // Asignar valores programáticamente (iOS Safari ignora value en innerHTML)
+    const selFecha=inner.querySelector('#cp-fecha');
+    if(selFecha)selFecha.value=fecha;
+    const timeInp=inner.querySelector('#cp-time');
+    if(timeInp)timeInp.value=div._time;
+    // Listeners
+    inner.querySelector('#cp-x').addEventListener('click',()=>div.remove());
+    selFecha?.addEventListener('change',function(){div._fecha=this.value;renderContent()});
+    timeInp?.addEventListener('change',function(){div._time=this.value;renderContent()});
+    timeInp?.addEventListener('input',function(){div._time=this.value;renderContent()});
+    inner.querySelector('#cp-crear').addEventListener('click',async function(){
+      if(!canCreate){toast(stuLibres.length<2?'Faltan alumnos disponibles':'Horario fuera de sesión o con solape');return}
       div.remove();
       await W.colocarTema(subId,topicName,fecha,horaInicio,stuLibres.map(a=>a.id));
     });
   }
-  div._fecha=initFecha;div._time=initHora;
   div.innerHTML=`<div class="cp-inner" style="background:var(--bg);border-radius:16px 16px 0 0;padding:16px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto"></div>`;
   document.body.appendChild(div);
   renderContent();
