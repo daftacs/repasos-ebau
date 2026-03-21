@@ -115,6 +115,7 @@ const LUPE_SUBS=['matesII','matesCCSS'];
 
 // ═══ STATE ═══
 let V='splash';
+let AUTOORG_INFO={};
 let ALUMNO=null;
 let ALUMNO_CLASES=[];
 let ADMIN=false;
@@ -674,6 +675,8 @@ function claseCard(c){
   const insc=c.inscripciones||[];
   const nStu=insc.length;
   const rate=nStu>=2?tarifa(nStu):0;
+  const hasExt=nStu>=2&&insc.some(i=>{const a=AD.alumnos.find(x=>x.id===i.alumno_id);return a?.es_externo});
+  const rateExt=hasExt?tarifaExt(nStu):0;
   const tInfo=(TP[c.asignatura_id]||[]).find(t=>t.name===c.tema);
   const dur=parseFloat(c.duracion_horas||tInfo?.dur||2);
   const brk=parseInt(c.descanso_min||tInfo?.brk||0);
@@ -685,7 +688,8 @@ function claseCard(c){
 <div style="flex:1">
 <div style="font-size:12px;font-weight:700;color:${sub?.a||'var(--t)'}">${fmtHoraMin(c.hora_inicio)}–${et} · ${sub?.e||''} ${sub?.n||''}</div>
 <div style="font-size:12px;font-weight:600;margin-top:2px">${c.tema}</div>
-<div style="font-size:10px;color:var(--t3);margin-top:1px">${fmtDur(dur)}${brk?` + ${brk}min descanso`:''} · ${rm?.n||c.aula} · ${nStu} alum.${rate?' · '+rate+'€/h':' · (mín 2)'}</div>
+<div style="font-size:10px;color:var(--t3);margin-top:1px">${fmtDur(dur)}${brk?` + ${brk}min descanso`:''} · ${rm?.n||c.aula} · ${nStu} alum.</div>
+${rate?`<div style="font-size:10px;color:var(--gold);margin-top:2px">Tarifa: ${rate}€/h × ${dur}h = <strong>${Math.round(rate*dur*100)/100}€/alum.</strong>${hasExt?` | ext: ${rateExt}€/h × ${dur}h = <strong>${Math.round(rateExt*dur*100)/100}€</strong>`:''}</div>`:`<div style="font-size:10px;color:var(--t3);margin-top:2px">(mín 2 alumnos para asignar tarifa)</div>`}
 </div>
 <div style="display:flex;gap:4px">
 <button onclick="W.moverCls('${c.id}')" style="background:none;border:1px solid var(--gold);color:var(--gold);cursor:pointer;font-size:11px;padding:3px 7px;border-radius:6px;font-family:inherit">↕ Mover</button>
@@ -724,15 +728,26 @@ function tetrisBlock(c,sessions){
 </div>
 </div>`;
 }
+function freeSlotBlock(startH,endH){
+  const dMin=Math.round((endH-startH)*60);
+  return`<div style="padding:3px 7px;border-radius:5px;border:1px dashed rgba(212,168,83,.2);font-size:9px;color:var(--t3);margin-bottom:2px;display:flex;justify-content:space-between;background:rgba(212,168,83,.03)"><span>${fmtHoraMin(startH)}–${fmtHoraMin(endH)}</span><span>libre ${dMin}min</span></div>`;
+}
 function tetrisTimeline(clases,teacher,sessions){
-  if(!clases.length)return'<div style="text-align:center;padding:12px;color:var(--t3);font-size:10px">Sin clases</div>';
+  const TRANS=5;
   let h='';
   sessions.forEach(sess=>{
     const sc=clases.filter(c=>{const m=c.hora_inicio*60;return m>=sess.start&&m<sess.end}).sort((a,b)=>a.hora_inicio-b.hora_inicio);
-    if(!sc.length)return;
-    h+=`<div style="font-size:9px;color:var(--t3);margin:4px 0 2px;text-transform:uppercase;letter-spacing:1px">${sess.id==='morning'?'Mañana':'Tarde'} ${fmtHoraMin(sess.start/60)}–${fmtHoraMin(sess.end/60)}</div>`;
-    sc.forEach(c=>h+=tetrisBlock(c,sessions));
+    h+=`<div style="font-size:9px;color:var(--t3);margin:4px 0 2px;text-transform:uppercase;letter-spacing:1px">${sess.id==='morning'?'☀️ Mañana':'🌙 Tarde'} ${fmtHoraMin(sess.start/60)}–${fmtHoraMin(sess.end/60)}</div>`;
+    if(!sc.length){h+=freeSlotBlock(sess.start/60,sess.end/60);return;}
+    if(sc[0].hora_inicio*60>sess.start)h+=freeSlotBlock(sess.start/60,sc[0].hora_inicio);
+    sc.forEach((c,i)=>{
+      h+=tetrisBlock(c,sessions);
+      const cEnd=c.hora_inicio*60+clsDurMin(c.duracion_horas,c.descanso_min)+TRANS;
+      const nextStart=i<sc.length-1?sc[i+1].hora_inicio*60:sess.end;
+      if(cEnd<nextStart)h+=freeSlotBlock(cEnd/60,nextStart/60);
+    });
   });
+  if(!h)h='<div style="text-align:center;padding:8px;color:var(--t3);font-size:9px">Sin sesiones este día</div>';
   return h;
 }
 function admHorarios(){
@@ -761,11 +776,11 @@ function admHorarios(){
 
 <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--gold2)">📅 ${fl(ADATE)}</div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-<div>
+<div style="min-width:0;overflow:hidden">
 <div style="font-size:11px;font-weight:700;color:#4a9eff;margin-bottom:6px;text-align:center;padding:4px;background:rgba(74,158,255,.08);border-radius:6px">⚡ David</div>
 ${tetrisTimeline(davidDc,'David',sessions)}
 </div>
-<div>
+<div style="min-width:0;overflow:hidden">
 <div style="font-size:11px;font-weight:700;color:#4ade80;margin-bottom:6px;text-align:center;padding:4px;background:rgba(74,222,128,.08);border-radius:6px">📐 Lupe</div>
 ${tetrisTimeline(lupeDc,'Lupe',sessions)}
 </div>
@@ -1043,9 +1058,34 @@ function stuClasesDia(stuId,fecha,clases){
   return clases.filter(c=>c.fecha===fecha&&(c.inscripciones||[]).some(i=>i.alumno_id===stuId));
 }
 
-W.autoOrg=async function(){
+function copyAutoOrgText(key){const t=AUTOORG_INFO[key]||'';navigator.clipboard.writeText(t).then(()=>toast('¡Copiado!',true)).catch(()=>{const el=document.createElement('textarea');el.value=t;el.style.cssText='position:fixed;opacity:0';document.body.appendChild(el);el.select();document.execCommand('copy');el.remove();toast('¡Copiado!',true)})}
+
+W.autoOrg=function(){
+  const ex=document.getElementById('autoorg-panel');if(ex){ex.remove();return}
+  if(!AD.alumnos.length){toast('No hay alumnos');return}
+  // Analizar estado
+  const pendArr=[];
+  AD.alumnos.forEach(a=>{SJ.forEach(sub=>{const ped=(a.peticiones||[]).find(p=>p.asignatura_id===sub.id);if(!ped)return;const tSin=(ped.temas||[]).filter(t=>!AD.clases.some(c=>c.asignatura_id===sub.id&&c.tema===t.name&&(c.inscripciones||[]).some(i=>i.alumno_id===a.id)));if(tSin.length)pendArr.push(`${a.nombre} ${a.apellidos}: ${sub.n} → ${tSin.map(t=>t.name+(t.urgent?' 🔥':'')).join(', ')}`)})});
+  const solapArr=[];
+  AD.clases.forEach(cd=>{if(!DAVID_SUBS.includes(cd.asignatura_id))return;const dS=cd.hora_inicio*60,dE=dS+clsDurMin(cd.duracion_horas,cd.descanso_min);AD.clases.forEach(cl=>{if(!LUPE_SUBS.includes(cl.asignatura_id)||cl.fecha!==cd.fecha)return;const lS=cl.hora_inicio*60,lE=lS+clsDurMin(cl.duracion_horas,cl.descanso_min);if(dS<lE&&dE>lS){const dIds=(cd.inscripciones||[]).map(i=>i.alumno_id),lIds=(cl.inscripciones||[]).map(i=>i.alumno_id),shared=dIds.filter(id=>lIds.includes(id));if(shared.length){const names=shared.map(id=>{const a=AD.alumnos.find(x=>x.id===id);return a?`${a.nombre} ${a.apellidos}`:id});solapArr.push(`${fl(cd.fecha)} ${fmtHoraMin(cd.hora_inicio)}: "${cd.tema}" (David) vs "${cl.tema}" (Lupe) → ${names.join(', ')}`)}}})});
+  const incompArr=[];
+  AD.clases.forEach(c=>{const dur=clsDurMin(c.duracion_horas,c.descanso_min);(c.inscripciones||[]).forEach(ins=>{const a=AD.alumnos.find(x=>x.id===ins.alumno_id);if(!a)return;const ped=(a.peticiones||[]).find(p=>p.asignatura_id===c.asignatura_id);if(!ped)return;const clsS=c.hora_inicio*60,clsE=clsS+dur;const hasBlk=(ped.horas_bloqueadas||[]).some(b=>{if(!b.startsWith(c.fecha+'-'))return false;const bhr=parseInt(b.split('-').pop());return bhr*60<clsE&&(bhr+1)*60>clsS});if(hasBlk)incompArr.push(`${a.nombre} ${a.apellidos}: ${c.tema} el ${fl(c.fecha)} ${fmtHoraMin(c.hora_inicio)} (hora bloqueada)`)})});
+  AUTOORG_INFO={pendientes:pendArr.join('\n')||'✅ Todos los temas tienen clase asignada',solapes:solapArr.join('\n')||'✅ Sin solapes entre David y Lupe',incompats:incompArr.join('\n')||'✅ Sin incompatibilidades horarias'};
+  const secH=(title,key,items,color)=>`<div style="margin-bottom:12px"><div style="font-weight:700;font-size:12px;color:${color};margin-bottom:5px">${title} (${items.length})</div><pre style="white-space:pre-wrap;font-size:10px;line-height:1.5;font-family:inherit;color:var(--t2);background:var(--card2);padding:8px;border-radius:8px;margin:0;max-height:90px;overflow-y:auto">${esc(AUTOORG_INFO[key])}</pre>${items.length?`<button onclick="copyAutoOrgText('${key}')" style="margin-top:4px;padding:3px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--t2);font-size:10px;cursor:pointer;font-family:inherit">📋 Copiar</button>`:''}</div>`;
+  const div=document.createElement('div');div.id='autoorg-panel';div.style.cssText='position:fixed;inset:0;background:rgba(15,15,15,.92);z-index:9990;display:flex;align-items:flex-end;justify-content:center';
+  div.innerHTML=`<div style="background:var(--bg);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-weight:700;color:var(--gold2);font-size:15px">🤖 Auto-organizar</div><button onclick="document.getElementById('autoorg-panel').remove()" style="background:none;border:none;color:var(--t2);cursor:pointer;font-size:18px">✕</button></div>
+${secH('Temas pendientes de asignar','pendientes',pendArr,'var(--gold)')}
+${secH('Solapes David / Lupe','solapes',solapArr,'var(--red)')}
+${secH('Incompatibilidades horarias','incompats',incompArr,'var(--warn)')}
+<div style="background:rgba(212,168,83,.06);border:1px solid rgba(212,168,83,.15);border-radius:10px;padding:10px;margin-bottom:14px;font-size:11px;color:var(--t2)">⚠️ Solo se borrarán clases <strong>sin alumnos</strong>. Las que ya tienen alumnos se mantienen.</div>
+<button class="btn" onclick="document.getElementById('autoorg-panel').remove();W._doAutoOrg()">🚀 EJECUTAR AUTO-ORG</button>
+</div>`;
+  document.body.appendChild(div);
+};
+
+W._doAutoOrg=async function(){
   const stu=AD.alumnos;if(!stu.length){toast('No hay alumnos');return}
-  if(!confirm('¿Reorganizar? Solo se borrarán las clases SIN alumnos asignados. Las que ya tienen alumnos se mantienen.'))return;
   showOv(true,'Organizando clases...');
   // Eliminar clases vacías
   const toDel=AD.clases.filter(c=>!(c.inscripciones||[]).length);
