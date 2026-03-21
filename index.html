@@ -764,21 +764,36 @@ function nextHoraInicio(session,clasesPuestas,newDurMin,teacher){
         const cEnd=c.hora_inicio*60+clsDurMin(c.duracion_horas,c.descanso_min)+TRANS;
         if(cEnd>cursor)cursor=cEnd;
       });
-      if(cursor+newDurMin+TRANS>end)return null;
-      return Math.ceil(cursor/60);
+      const h=Math.ceil(cursor/60);
+      if(h*60+newDurMin>end)return null;
+      return h;
     }
   }
-  // morning: backward — la clase más nueva va ANTES de las existentes
+  // morning: busca el hueco más tarde posible (más cercano al fin de sesión)
   if(id==='morning'){
-    let cursor=end;
-    // ajuste: la última clase ya puesta en mañana define el tope superior
-    if(teacherCls.length){
-      const earliest=Math.min(...teacherCls.map(c=>c.hora_inicio*60));
-      cursor=earliest-TRANS;
+    // Ordenar clases existentes del profesor por hora de inicio
+    const sorted=teacherCls.slice().sort((a,b)=>a.hora_inicio-b.hora_inicio);
+    // Construir lista de ventanas libres de la sesión
+    // Una ventana libre es un rango [windowStart, windowEnd] sin clases del profesor
+    const windows=[];
+    let wStart=start;
+    for(const c of sorted){
+      const cS=c.hora_inicio*60;
+      if(cS>wStart+TRANS)windows.push({s:wStart,e:cS-TRANS});
+      wStart=cS+clsDurMin(c.duracion_horas,c.descanso_min)+TRANS;
     }
-    const horaInicioMin=cursor-newDurMin;
-    if(horaInicioMin<start)return null;
-    return Math.floor(horaInicioMin/60);
+    if(wStart<end)windows.push({s:wStart,e:end});
+    // Buscar el hueco más tardío donde quepa la nueva clase (maximiza hora de inicio)
+    for(let i=windows.length-1;i>=0;i--){
+      const{s,e}=windows[i];
+      if(e-s<newDurMin)continue; // hueco demasiado pequeño
+      // Colocar lo más tarde posible dentro del hueco
+      const horaInicioMin=e-newDurMin;
+      if(horaInicioMin<start)continue;
+      const h=Math.floor(horaInicioMin/60);
+      if(h*60>=s)return h; // cabe dentro del hueco
+    }
+    return null;
   }
   return null;
 }
@@ -884,8 +899,9 @@ W.autoOrg=async function(){
         durMin,sub.t);
       if(horaInicio===null)continue;
 
-      // Verificar profesor no tiene otra clase a esa hora
-      if(res.some(c=>c.fecha===date&&c.hora_inicio===horaInicio&&SJ.find(s=>s.id===c.asignatura_id)?.t===sub.t))continue;
+      // Verificar profesor no tiene solapamiento con otra clase
+      {const nS=horaInicio*60,nE=nS+durMin;
+      if(res.some(c=>{if(c.fecha!==date)return false;if(SJ.find(s=>s.id===c.asignatura_id)?.t!==sub.t)return false;const cS=c.hora_inicio*60,cE=cS+clsDurMin(c.duracion_horas,c.descanso_min);return nS<cE&&nE>cS;}))continue;}
 
       // Filtrar alumnos disponibles para esa fecha+hora
       const av=info.sts.filter(sid=>{
@@ -973,7 +989,8 @@ W.moverCls=function(cid){
       clsExcl.filter(x=>{if(x.fecha!==date)return false;const h=x.hora_inicio*60;return h>=start&&h<end;}),
       durMin,sub.t);
     if(horaInicio===null)continue;
-    if(clsExcl.some(x=>x.fecha===date&&x.hora_inicio===horaInicio&&SJ.find(s=>s.id===x.asignatura_id)?.t===sub.t))continue;
+    {const nS=horaInicio*60,nE=nS+durMin;
+    if(clsExcl.some(x=>{if(x.fecha!==date)return false;if(SJ.find(s=>s.id===x.asignatura_id)?.t!==sub.t)return false;const cS=x.hora_inicio*60,cE=cS+clsDurMin(x.duracion_horas,x.descanso_min);return nS<cE&&nE>cS;}))continue;}
 
     // Verificar solapes de alumnos
     const solapes=stuIds.filter(sid=>stuSolape(sid,date,horaInicio,durMin,clsExcl));
