@@ -55,9 +55,41 @@ input,select,textarea,button{font-family:'Outfit',sans-serif}
 .radio-card{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;border:2px solid var(--brd);background:var(--card);cursor:pointer;transition:all .15s}
 .radio-card.sel{border-color:var(--gold);background:rgba(212,168,83,.08)}
 .radio-card input{accent-color:var(--gold);width:18px;height:18px;flex-shrink:0}
+body.light{--bg:#f8f6f2;--card:#ffffff;--card2:#f0ede8;--brd:#e0d8cc;--t:#1a1510;--t2:#6b5e50;--t3:#a09888;--gold:#b8862e;--gold2:#7a5a1e}
+body.light .ov{background:rgba(248,246,242,.85)}
+body.light .btn{background:linear-gradient(135deg,#b8862e,#9a7025);color:#fff}
+body.light .toast{background:#b8862e;color:#fff}
+body.light .pin-key:active{background:#b8862e;color:#fff}
+body.light .tab.on{background:#b8862e;color:#fff}
+.theme-toggle{position:fixed;top:12px;right:12px;z-index:9999;width:40px;height:40px;border-radius:50%;border:1px solid var(--brd);background:var(--card);color:var(--t2);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:all .2s}
+.theme-toggle:hover{border-color:var(--gold);color:var(--gold)}
+.back-btn{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:8px 16px;border-radius:12px;border:1px solid var(--brd);background:rgba(160,152,136,.08);color:var(--t2);cursor:pointer;font-size:15px;font-weight:600;font-family:inherit;transition:all .15s}
+.back-btn:active{transform:scale(.95);background:rgba(160,152,136,.15)}
+.back-btn .back-arrow{font-size:20px;line-height:1}
+.ebau-card{flex:1;padding:16px 12px;border-radius:14px;border:2px solid var(--brd);background:var(--card);cursor:pointer;text-align:center;transition:all .15s;min-width:0}
+.ebau-card:active{transform:scale(.97)}
+.ebau-card.sel-green{border-color:var(--grn);background:rgba(34,197,94,.08)}
+.ebau-card.sel-blue{border-color:#4a9eff;background:rgba(74,158,255,.08)}
+.urg-card{flex:1;padding:8px 6px;border-radius:8px;border:1px solid var(--brd);background:var(--card);cursor:pointer;text-align:center;font-size:11px;font-weight:600;font-family:inherit;transition:all .12s;color:var(--t3)}
+.urg-card:active{transform:scale(.95)}
+.urg-card.sel-urg{border-color:var(--red);background:rgba(239,68,68,.08);color:var(--red)}
+.urg-card.sel-nourg{border-color:var(--grn);background:rgba(34,197,94,.08);color:var(--grn)}
+.tetris-block{position:relative;border-radius:8px;padding:6px 8px;margin-bottom:2px;font-size:11px;cursor:pointer;transition:all .1s;display:flex;align-items:center;justify-content:space-between;gap:4px}
+.tetris-block:hover{filter:brightness(1.1)}
+.tetris-move{width:24px;height:24px;border-radius:4px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;padding:0}
+.tetris-move:active{transform:scale(.9)}
+.alu-section{background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--brd);margin-bottom:10px}
+.alu-section h3{font-size:14px;font-weight:700;color:var(--gold2);margin-bottom:10px}
+.crono-cell{padding:4px 6px;border-radius:6px;font-size:10px;text-align:center;min-height:28px;display:flex;align-items:center;justify-content:center}
+.cal-avail-cell{width:100%;height:28px;border-radius:4px;cursor:pointer;transition:all .1s;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600}
+.cal-avail-cell:hover{filter:brightness(1.1)}
+.cal-avail-cell.blocked{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.cal-avail-cell.free{background:var(--card2);border:1px solid var(--brd);color:var(--t3)}
+.cal-avail-cell.has-class{border:1px solid rgba(212,168,83,.3)}
 </style>
 </head>
 <body>
+<button class="theme-toggle" id="theme-toggle" title="Cambiar tema">🌙</button>
 <div id="app"></div>
 <div id="ov" class="ov" style="display:none"><div class="spin"></div><div id="ov-msg" style="color:var(--t2);font-size:14px">Cargando...</div></div>
 <script>
@@ -75,7 +107,7 @@ const TP={
   matesCCSS:[{name:"Matrices y determinantes",dur:2,brk:0},{name:"Sistemas de ecuaciones",dur:2,brk:0},{name:"Programación lineal",dur:2,brk:0},{name:"Límites y continuidad",dur:2,brk:0},{name:"Derivadas y aplicaciones",dur:2,brk:0},{name:"Integrales",dur:2,brk:0},{name:"Probabilidad",dur:2,brk:0},{name:"Estadística inferencial",dur:2,brk:0}]
 };
 const DT=["2026-04-01","2026-04-02","2026-04-17","2026-04-18","2026-04-19","2026-04-24","2026-04-25","2026-04-26","2026-05-01","2026-05-02","2026-05-03","2026-05-08","2026-05-09","2026-05-10","2026-05-15","2026-05-16","2026-05-17","2026-05-22","2026-05-23","2026-05-24"];
-const HR=[8,9,10,11,12,13,14,15,16,17,18,19,20,21];
+const HR=[8,9,10,11,12,13,14,15,16,17,18,19,20,21]; // 8 a 21
 const RM=[{id:"fondo",n:"Clase fondo",c:8},{id:"primera",n:"Primera clase",c:10}];
 const ADMIN_PASS="220509";
 const DAVID_SUBS=['fisica','quimica'];
@@ -83,14 +115,20 @@ const LUPE_SUBS=['matesII','matesCCSS'];
 
 // ═══ STATE ═══
 let V='splash';
-let ALUMNO=null; // alumno logueado {id,nombre,apellidos,...,peticiones:[...]}
-let ALUMNO_CLASES=[]; // clases asignadas con inscripciones
+let ALUMNO=null;
+let ALUMNO_CLASES=[];
 let ADMIN=false;
 let AD={alumnos:[],clases:[],config:{}};
 let LAST_MSG='';
 let AT='alumnos',ADATE=DT[0],ASTU='',ANEW=false,ANC={sid:'fisica',topic:'',date:'',hour:16,room:'fondo'},ASRCH='',AEXP={};
+let AEXP_EDIT={};
+
+// ═══ THEME ═══
+(function(){const t=localStorage.getItem('ebau_theme');if(t==='light')document.body.classList.add('light');updateThemeBtn()})();
+function updateThemeBtn(){const b=document.getElementById('theme-toggle');if(b)b.textContent=document.body.classList.contains('light')?'☀️':'🌙'}
+function toggleTheme(){document.body.classList.toggle('light');localStorage.setItem('ebau_theme',document.body.classList.contains('light')?'light':'dark');updateThemeBtn()}
 // Registro
-let REG={step:'datos',nombre:'',apellidos:'',telefono:'',centro:'',esExterno:false,prefConcentrar:false,pin:'',pinBuf:'',pinBuf2:'',pinPhase:1};
+let REG={step:'datos',nombre:'',apellidos:'',telefono:'',centro:'',_centroOtro:'',esExterno:false,prefConcentrar:false,pin:'',pinBuf:'',pinBuf2:'',pinPhase:1};
 // Login
 let LG={nombre:'',apellidos:'',pinBuf:''};
 // Wizard (reuse existing pattern)
@@ -108,8 +146,10 @@ function fmtDur(d){const h=Math.floor(d);const m=Math.round((d-h)*60);return h+'
 function fd(d){const x=new Date(d+'T12:00:00');return x.getDate()+'/'+(x.getMonth()+1)}
 function fl(d){const x=new Date(d+'T12:00:00');return DN[x.getDay()]+' '+x.getDate()+'/'+(x.getMonth()+1)}
 function isWeekend(d){const x=new Date(d+'T12:00:00').getDay();return x===0||x===6}
-function endTime(h,dur,brkMin){const tot=Math.round(parseFloat(dur||2)*60)+parseInt(brkMin||0);const eh=Math.floor((h*60+tot)/60);const em=(h*60+tot)%60;return eh+':'+(em?String(em).padStart(2,'0'):'00')}
-function fmtHora(h){return h+':00'}
+function fmtHoraMin(h){const hh=Math.floor(h);const mm=Math.round((h%1)*60);return hh+':'+String(mm).padStart(2,'0')}
+function endTime(h,dur,brkMin){const startMin=Math.round(h*60);const endMin=startMin+Math.round(parseFloat(dur||2)*60)+parseInt(brkMin||0);return fmtHoraMin(endMin/60)}
+function fmtHora(h){return fmtHoraMin(h)}
+function normStr(s){return(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')}
 function toast(m,ok){const e=document.createElement('div');e.className='toast';e.textContent=m;if(ok)e.style.background='var(--grn)';document.body.appendChild(e);setTimeout(()=>e.remove(),2800)}
 function showOv(show,msg='Cargando...'){document.getElementById('ov').style.display=show?'flex':'none';document.getElementById('ov-msg').textContent=msg}
 function R(){document.getElementById('app').innerHTML=renderV();bind()}
@@ -150,7 +190,7 @@ function regH(){
 }
 function regDatosH(){return`
 <div class="pb"><div style="width:33%"></div></div>
-<div class="c"><div class="hdr"><button id="back">← Atrás</button><span>Paso 1 de 3</span></div>
+<div class="c"><div class="hdr"><button class="back-btn" id="back"><span class="back-arrow">←</span> Atrás</button><span>Paso 1 de 3</span></div>
 <div class="fu" style="padding-top:20px;text-align:center;margin-bottom:24px">
 <div style="font-size:40px;margin-bottom:8px">👋</div>
 <h2 style="font-family:'Playfair Display',serif;font-size:22px;color:var(--gold2);margin-bottom:4px">Tus datos</h2>
@@ -159,13 +199,17 @@ function regDatosH(){return`
 <input class="inp" id="r-nombre" placeholder="Nombre *" value="${esc(REG.nombre)}">
 <input class="inp" id="r-apellidos" placeholder="Apellidos *" value="${esc(REG.apellidos)}">
 <input class="inp" id="r-telefono" placeholder="Teléfono (opcional)" type="tel" value="${esc(REG.telefono)}">
-<input class="inp" id="r-centro" placeholder="Centro educativo *" value="${esc(REG.centro)}">
+<select class="inp" id="r-centro-sel">
+<option value="" disabled ${!REG.centro||REG.centro==='OTRO'&&!REG._centroOtro?'selected':''}>Centro educativo *</option>
+${['RADIO EXTERIOR','CABO HUERTAS','COLEGIO CEU','JESUITAS','MARISTAS','OTRO'].map(c=>`<option value="${c}" ${REG.centro===c||(c==='OTRO'&&REG._centroOtro)?'selected':''}>${c}</option>`).join('')}
+</select>
+${REG.centro==='OTRO'||REG._centroOtro?`<input class="inp" id="r-centro-otro" placeholder="Nombre del centro *" value="${esc(REG._centroOtro||'')}">`:''}
 </div><div style="height:90px"></div></div>
-<div class="ftr"><div class="c"><button class="btn" id="next" ${REG.nombre.trim()&&REG.apellidos.trim()&&REG.centro.trim()?'':'disabled'}>SIGUIENTE →</button></div></div>`}
+<div class="ftr"><div class="c"><button class="btn" id="next" ${REG.nombre.trim()&&REG.apellidos.trim()&&(REG.centro&&REG.centro!=='OTRO'||REG._centroOtro?.trim())?'':'disabled'}>SIGUIENTE →</button></div></div>`}
 
 function regConfigH(){return`
 <div class="pb"><div style="width:66%"></div></div>
-<div class="c"><div class="hdr"><button id="back">← Atrás</button><span>Paso 2 de 3</span></div>
+<div class="c"><div class="hdr"><button class="back-btn" id="back"><span class="back-arrow">←</span> Atrás</button><span>Paso 2 de 3</span></div>
 <div class="fu" style="padding-top:20px">
 <div style="text-align:center;margin-bottom:24px">
 <div style="font-size:40px;margin-bottom:8px">⚙️</div>
@@ -190,7 +234,7 @@ function regPinH(){
   const buf=isConf?REG.pinBuf2:REG.pinBuf;
   return`
 <div class="pb"><div style="width:100%"></div></div>
-<div class="c"><div class="hdr"><button id="back">← Atrás</button><span>Paso 3 de 3</span></div>
+<div class="c"><div class="hdr"><button class="back-btn" id="back"><span class="back-arrow">←</span> Atrás</button><span>Paso 3 de 3</span></div>
 <div class="fu" style="text-align:center;padding-top:32px">
 <div style="font-size:40px;margin-bottom:12px">🔑</div>
 <h2 style="font-family:'Playfair Display',serif;font-size:22px;color:var(--gold2);margin-bottom:6px">${isConf?'Confirma tu PIN':'Elige tu PIN'}</h2>
@@ -215,7 +259,7 @@ function wizardH(){
 }
 function wS0(ts){return`
 <div class="pb"><div style="width:${100/(ts+1)}%"></div></div>
-<div class="c"><div class="hdr"><button id="back">← Atrás</button><span>Asignaturas</span></div>
+<div class="c"><div class="hdr"><button class="back-btn" id="back"><span class="back-arrow">←</span> Atrás</button><span>Asignaturas</span></div>
 <div class="fu" style="text-align:center;padding-top:16px">
 <div style="font-size:40px;margin-bottom:10px">📚</div>
 <h2 style="font-family:'Playfair Display',serif;font-size:22px;color:var(--gold2);margin-bottom:6px">¿Qué asignaturas?</h2>
@@ -231,15 +275,25 @@ ${on?`<div style="margin-top:6px;font-size:16px;color:${s.a}">✓</div>`:''}</bu
 
 function wSub(ts){
   const si=S.step-1,sid=S.subs[si],sub=SJ.find(s=>s.id===sid),d=S.data[sid],tab=S.tabs[sid]||'topics',last=S.step===ts-1;
-  const canGo=d.topics.length>0&&d.finalDate;
+  const allUrg=d.topics.length>0&&d.topics.every(t=>t.urgent===true||t.urgent===false);
+  const canGo=d.topics.length>0&&d.finalDate&&d.ebau!==null&&d.ebau!==undefined&&allUrg;
   return`<div class="pb"><div style="width:${(S.step+1)*100/(ts+1)}%"></div></div>
-<div class="c"><div class="hdr"><button id="back">← Atrás</button><span>Paso ${S.step+1} de ${ts}</span></div>
+<div class="c"><div class="hdr"><button class="back-btn" id="back"><span class="back-arrow">←</span> Atrás</button><span>Paso ${S.step+1} de ${ts}</span></div>
 <div>
 <div style="display:flex;align-items:center;gap:12px;margin:14px 0"><span style="font-size:32px">${sub.e}</span>
 <div><h2 style="font-family:'Playfair Display',serif;font-size:20px;color:${sub.a}">${sub.n}</h2>
 <div style="font-size:11px;color:var(--t3)">Asignatura ${si+1} de ${S.subs.length}</div></div></div>
 
-<button id="ebau-tog" style="width:100%;padding:13px;border-radius:12px;border:2px solid ${d.ebau?'var(--grn)':'var(--brd)'};background:${d.ebau?'rgba(34,197,94,.06)':'var(--card)'};cursor:pointer;font-family:inherit;color:${d.ebau?'var(--grn)':'var(--t3)'};font-weight:600;font-size:14px;margin-bottom:12px;text-align:center">${d.ebau?'✅ Voy a la EBAU':'❌ Solo para el final'}</button>
+<div style="display:flex;gap:8px;margin-bottom:12px">
+<div class="ebau-card${d.ebau===true?' sel-green':''}" onclick="W.setEbau('${sid}',true)">
+<div style="font-size:24px;margin-bottom:4px">🎓</div>
+<div style="font-size:13px;font-weight:700;color:${d.ebau===true?'var(--grn)':'var(--t)'}">Voy a la EBAU</div>
+</div>
+<div class="ebau-card${d.ebau===false?' sel-blue':''}" onclick="W.setEbau('${sid}',false)">
+<div style="font-size:24px;margin-bottom:4px">📝</div>
+<div style="font-size:13px;font-weight:700;color:${d.ebau===false?'#4a9eff':'var(--t)'}">Solo el final</div>
+</div>
+</div>
 
 <div style="margin-bottom:14px">
 <label style="font-size:12px;color:var(--t2);display:block;margin-bottom:5px">Fecha examen final <span style="color:var(--red)">*</span></label>
@@ -272,7 +326,7 @@ function topH(sid,sub,d){
 <span style="font-size:18px;font-weight:800;color:${sub.a};width:26px;text-align:center;flex-shrink:0">${i+1}</span>
 <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600">${t.name}</div>
 ${durText?`<div style="font-size:11px;color:var(--t3);margin-top:1px">⏱ ${durText}</div>`:''}</div>
-<button class="urg-btn ${t.urgent?'on':'off'}" onclick="W.togUrg('${sid}','${esc2(t.name)}')">🔥 ${t.urgent?'Urgente':'Antes del final'}</button>
+<div style="display:flex;gap:3px;flex-direction:column"><button class="urg-card${t.urgent===true?' sel-urg':''}" onclick="W.setUrg('${sid}','${esc2(t.name)}',true)">🔥 Urgente</button><button class="urg-card${t.urgent===false?' sel-nourg':''}" onclick="W.setUrg('${sid}','${esc2(t.name)}',false)">📅 Sin prisa</button></div>
 <div style="display:flex;flex-direction:column;gap:3px">
 <button class="arrow-btn" onclick="W.movT('${sid}',${i},-1)" ${i===0?'disabled':''}>▲</button>
 <button class="arrow-btn" onclick="W.movT('${sid}',${i},1)" ${i===d.topics.length-1?'disabled':''}>▼</button>
@@ -350,7 +404,7 @@ ${d.blocked.sort().map(b=>{const p=b.split('-');return`<span style="display:inli
 // ═══ FIN WIZARD ═══
 function finH(){return`
 <div class="pb"><div style="width:100%"></div></div>
-<div class="c"><div class="hdr"><button id="back">← Atrás</button><span>✓ Resumen</span></div>
+<div class="c"><div class="hdr"><button class="back-btn" id="back"><span class="back-arrow">←</span> Atrás</button><span>✓ Resumen</span></div>
 <div class="fu" style="text-align:center;padding-top:16px">
 <div style="font-size:44px;margin-bottom:10px">🎉</div>
 <h2 style="font-family:'Playfair Display',serif;font-size:22px;color:var(--gold2);margin-bottom:6px">¡Listo!</h2>
@@ -367,7 +421,7 @@ function finH(){return`
 // ═══ LOGIN ═══
 function loginH(){return`
 <div class="c" style="min-height:100dvh;display:flex;flex-direction:column;justify-content:center"><div class="fu">
-<button id="back" style="background:none;border:none;color:var(--t2);cursor:pointer;font-family:inherit;font-size:14px;margin-bottom:24px;padding:0">← Volver</button>
+<button class="back-btn" id="back" style="margin-bottom:24px"><span class="back-arrow">←</span> Volver</button>
 <div style="text-align:center;margin-bottom:28px">
 <div style="font-size:40px;margin-bottom:10px">👤</div>
 <h2 style="font-family:'Playfair Display',serif;font-size:22px;color:var(--gold2);margin-bottom:4px">Accede a tu área</h2>
@@ -381,7 +435,7 @@ function loginH(){return`
 
 function loginPinH(){return`
 <div class="c" style="min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center"><div class="fu">
-<button id="back" style="background:none;border:none;color:var(--t2);cursor:pointer;font-family:inherit;font-size:14px;margin-bottom:24px">← Atrás</button>
+<button class="back-btn" id="back" style="margin-bottom:24px"><span class="back-arrow">←</span> Atrás</button>
 <div style="font-size:40px;margin-bottom:12px">🔑</div>
 <h2 style="font-family:'Playfair Display',serif;font-size:22px;color:var(--gold2);margin-bottom:6px">Introduce tu PIN</h2>
 <p style="color:var(--t2);font-size:13px;margin-bottom:24px">${esc(LG.nombre)} ${esc(LG.apellidos)}</p>
@@ -444,8 +498,8 @@ function stuClasesH(){
       total+=pt;
       h+=`<div style="padding:10px;border-radius:10px;background:var(--card2);margin-bottom:6px">
 <div style="font-weight:600;font-size:13px">${c.tema}</div>
-<div style="font-size:12px;color:var(--t2);margin-top:2px">${fl(c.fecha)} · ${c.hora_inicio}:00 · ${fmtDur(c.duracion_horas||2)}</div>
-<div style="font-size:12px;color:var(--gold);margin-top:2px;font-weight:600">${pt}€ esta clase (${nStu} alum. → ${ph}€/h)</div>
+<div style="font-size:12px;color:var(--t2);margin-top:2px">${fl(c.fecha)} · ${fmtHoraMin(c.hora_inicio)} · ${fmtDur(c.duracion_horas||2)}</div>
+<div style="font-size:12px;color:var(--gold);margin-top:2px;font-weight:600">${pt}€ esta clase (${nStu} alum. → ${ph}€/h${ALUMNO.es_externo?' +5€/h externo':''})</div>
 </div>`;
     });
     h+=`</div>`;
@@ -504,17 +558,115 @@ function admAlumnos(){
 <div style="display:flex;gap:4px;align-items:center">
 <button onclick="W.delAlu('${a.id}')" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(239,68,68,.08);font-size:10px;cursor:pointer;color:var(--red);font-family:inherit">🗑</button>
 </div></div>
-${exp?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--brd)">
-${peds.map(p=>{const s=SJ.find(x=>x.id===p.asignatura_id);if(!s)return'';const temas=p.temas||[];return`<div style="padding:8px;border-radius:8px;background:${s.bg};margin-bottom:6px">
-<div style="font-weight:700;color:${s.a};font-size:11px">${s.e} ${s.n} · ${p.es_ebau?'EBAU':'Solo final'} · ${p.fecha_examen?fd(p.fecha_examen):'?'}${p.semana_hint?' ('+p.semana_hint+')':''}</div>
-<div style="font-size:10px;color:var(--t2);margin-top:2px">${temas.map(t=>t.priority+'. '+t.name+(t.urgent?' 🔥':'')).join(' · ')}</div>
-${(p.horas_bloqueadas||[]).length?`<div style="font-size:9px;color:var(--red);margin-top:2px">🚫 ${p.horas_bloqueadas.length} restricciones${p.nota_bloqueo?' — '+p.nota_bloqueo:''}</div>`:`<div style="font-size:9px;color:var(--grn);margin-top:2px">✅ Sin restricciones</div>`}
-</div>`;}).join('')}
-<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-<button onclick="W.togEdit('${a.id}',${!a.puede_editar})" style="padding:5px 10px;border-radius:7px;border:1px solid var(--brd);background:var(--card2);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">${a.puede_editar?'🔓 Puede editar':'🔒 No puede editar'}</button>
-<button onclick="W.togExt('${a.id}',${!a.es_externo})" style="padding:5px 10px;border-radius:7px;border:1px solid var(--brd);background:var(--card2);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">${a.es_externo?'→ Marcar academia':'→ Marcar externo'}</button>
-</div></div>`:''}
+${exp?admAlumnoExp(a,peds):''}
 </div>`;}).join('')}</div></div>`}
+
+function admAlumnoExp(a,peds){
+  const ed=AEXP_EDIT[a.id]||{};
+  // Sección A: Info básica
+  let h=`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--brd)">`;
+  h+=`<div class="alu-section"><h3>📋 Info básica</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+<div><label style="font-size:10px;color:var(--t3)">Nombre</label><input class="inp" style="font-size:12px;padding:8px" value="${esc(ed.nombre||a.nombre)}" onchange="W.editField('${a.id}','nombre',this.value)"></div>
+<div><label style="font-size:10px;color:var(--t3)">Apellidos</label><input class="inp" style="font-size:12px;padding:8px" value="${esc(ed.apellidos||a.apellidos)}" onchange="W.editField('${a.id}','apellidos',this.value)"></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+<div><label style="font-size:10px;color:var(--t3)">Teléfono</label><input class="inp" style="font-size:12px;padding:8px" value="${esc(ed.telefono!==undefined?ed.telefono:a.telefono||'')}" onchange="W.editField('${a.id}','telefono',this.value)"></div>
+<div><label style="font-size:10px;color:var(--t3)">Centro</label><select class="inp" style="font-size:12px;padding:8px" onchange="W.editField('${a.id}','centro',this.value)">
+${['RADIO EXTERIOR','CABO HUERTAS','COLEGIO CEU','JESUITAS','MARISTAS','OTRO'].map(c=>`<option value="${c}" ${(ed.centro||a.centro)===c?'selected':''}>${c}</option>`).join('')}
+</select></div>
+</div>
+<div style="display:flex;gap:8px;margin-bottom:8px">
+<label style="font-size:11px;color:var(--t2);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" ${(ed.es_externo!==undefined?ed.es_externo:a.es_externo)?'checked':''} onchange="W.editField('${a.id}','es_externo',this.checked)" style="accent-color:var(--gold)"> Externo</label>
+<label style="font-size:11px;color:var(--t2);display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" ${(ed.prefiere_concentrar!==undefined?ed.prefiere_concentrar:a.prefiere_concentrar)?'checked':''} onchange="W.editField('${a.id}','prefiere_concentrar',this.checked)" style="accent-color:var(--gold)"> Concentrar</label>
+</div>
+<div style="display:flex;gap:6px">
+<button onclick="W.saveAluEdit('${a.id}')" class="btn btn-s btn-g" style="font-size:11px">Guardar</button>
+<button onclick="W.undoAluEdit('${a.id}')" class="btn btn-s btn-o" style="font-size:11px">Deshacer</button>
+<button onclick="W.togEdit('${a.id}',${!a.puede_editar})" style="padding:5px 10px;border-radius:7px;border:1px solid var(--brd);background:var(--card2);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">${a.puede_editar?'🔓 Edita':'🔒 No edita'}</button>
+</div></div>`;
+
+  // Sección B: Cronograma multi-asignatura
+  const aClases=AD.clases.filter(c=>(c.inscripciones||[]).some(i=>i.alumno_id===a.id));
+  const aSubs=[...new Set(peds.map(p=>p.asignatura_id))];
+  if(aSubs.length){
+    h+=`<div class="alu-section"><h3>📅 Cronograma</h3>
+<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10px">
+<tr><th style="padding:4px;text-align:left;color:var(--t3);border-bottom:1px solid var(--brd)">Fecha</th>
+${aSubs.map(sid=>{const s=SJ.find(x=>x.id===sid);return`<th style="padding:4px;text-align:center;color:${s?.a||'var(--t)'};border-bottom:1px solid var(--brd)">${s?.e||''} ${s?.n||''}</th>`}).join('')}</tr>`;
+    const blockedDates={};peds.forEach(p=>{(p.horas_bloqueadas||[]).forEach(b=>{const dt=b.substring(0,b.lastIndexOf('-'));if(!blockedDates[dt])blockedDates[dt]=new Set();blockedDates[dt].add(p.asignatura_id)})});
+    DT.forEach(dt=>{
+      h+=`<tr><td style="padding:3px 4px;color:var(--t2);border-bottom:1px solid var(--brd);white-space:nowrap">${fl(dt)}</td>`;
+      aSubs.forEach(sid=>{
+        const cls=aClases.filter(c=>c.fecha===dt&&c.asignatura_id===sid);
+        const s=SJ.find(x=>x.id===sid);
+        const isBlocked=blockedDates[dt]?.has(sid);
+        if(cls.length){
+          h+=`<td style="padding:2px;border-bottom:1px solid var(--brd)">`;
+          cls.forEach(c=>h+=`<div class="crono-cell" style="background:${s?.bg||'var(--card2)'};color:${s?.a||'var(--t)'};margin-bottom:1px">${fmtHoraMin(c.hora_inicio)} ${c.tema?.substring(0,12)||''}</div>`);
+          h+=`</td>`;
+        } else if(isBlocked){
+          h+=`<td style="padding:2px;border-bottom:1px solid var(--brd)"><div class="crono-cell" style="background:rgba(239,68,68,.08);color:var(--red)">🚫</div></td>`;
+        } else {
+          h+=`<td style="padding:2px;border-bottom:1px solid var(--brd)"><div class="crono-cell" style="color:var(--t3)">—</div></td>`;
+        }
+      });
+      h+=`</tr>`;
+    });
+    h+=`</table></div></div>`;
+  }
+
+  // Sección C: Calendario disponibilidad (simplificado)
+  h+=`<div class="alu-section"><h3>📆 Disponibilidad</h3>`;
+  const allBlocked=new Set();peds.forEach(p=>(p.horas_bloqueadas||[]).forEach(b=>allBlocked.add(b)));
+  const blockNote=peds.find(p=>p.nota_bloqueo)?.nota_bloqueo||'';
+  // Group DT by week
+  const weeks={};DT.forEach(dt=>{const d=new Date(dt+'T12:00:00');const wk=getWeekNum(d);if(!weeks[wk])weeks[wk]=[];weeks[wk].push(dt)});
+  Object.values(weeks).forEach(wDates=>{
+    h+=`<div style="margin-bottom:8px"><div style="display:grid;grid-template-columns:40px repeat(${wDates.length},1fr);gap:2px;font-size:9px">`;
+    h+=`<div style="color:var(--t3);font-weight:600">Hora</div>`;
+    wDates.forEach(dt=>h+=`<div style="color:var(--t2);text-align:center;font-weight:600">${fl(dt).substring(0,6)}</div>`);
+    HR.forEach(hr=>{
+      h+=`<div style="color:var(--t3);padding:1px 0">${hr}h</div>`;
+      wDates.forEach(dt=>{
+        const key=dt+'-'+hr;
+        const blocked=allBlocked.has(key);
+        const cls=aClases.find(c=>c.fecha===dt&&c.hora_inicio<=hr&&c.hora_inicio*60+clsDurMin(c.duracion_horas,c.descanso_min)>hr*60);
+        const s=cls?SJ.find(x=>x.id===cls.asignatura_id):null;
+        if(cls){
+          h+=`<div class="cal-avail-cell has-class" style="background:${s?.bg||'var(--card2)'};color:${s?.a||'var(--t)'}">📚</div>`;
+        } else {
+          h+=`<div class="cal-avail-cell ${blocked?'blocked':'free'}" onclick="W.togAvail('${a.id}','${dt}',${hr})">${blocked?'🚫':''}</div>`;
+        }
+      });
+    });
+    h+=`</div></div>`;
+  });
+  if(blockNote)h+=`<div style="font-size:10px;color:var(--warn);margin-top:4px">📝 ${esc(blockNote)}</div>`;
+  h+=`</div>`;
+
+  // Sección: Peticiones del alumno
+  h+=`<div class="alu-section"><h3>📋 Peticiones</h3>`;
+  peds.forEach(p=>{
+    const s=SJ.find(x=>x.id===p.asignatura_id);if(!s)return;
+    const temas=p.temas||[];
+    h+=`<div style="padding:8px;border-radius:8px;background:${s.bg};margin-bottom:6px">
+<div style="font-weight:700;color:${s.a};font-size:11px">${s.e} ${s.n} · ${p.es_ebau?'EBAU':'Solo final'} · ${p.fecha_examen?fd(p.fecha_examen):'?'}${p.semana_hint?' ('+p.semana_hint+')':''}</div>`;
+    temas.forEach((t,i)=>{
+      h+=`<div style="display:flex;align-items:center;gap:4px;margin-top:3px;font-size:10px;color:var(--t2)">
+<span style="font-weight:700;color:${s.a};width:16px">${i+1}</span>
+<span style="flex:1">${t.name}${t.urgent?' 🔥':''}</span>
+<button onclick="W.movPetT('${a.id}','${p.asignatura_id}',${i},-1)" style="background:none;border:1px solid var(--brd);color:var(--t3);cursor:pointer;font-size:9px;padding:1px 4px;border-radius:3px" ${i===0?'disabled':''}>▲</button>
+<button onclick="W.movPetT('${a.id}','${p.asignatura_id}',${i},1)" style="background:none;border:1px solid var(--brd);color:var(--t3);cursor:pointer;font-size:9px;padding:1px 4px;border-radius:3px" ${i===temas.length-1?'disabled':''}>▼</button>
+<button onclick="W.togPetUrg('${a.id}','${p.asignatura_id}','${esc2(t.name)}')" style="background:none;border:1px solid ${t.urgent?'rgba(239,68,68,.3)':'var(--brd)'};color:${t.urgent?'var(--red)':'var(--t3)'};cursor:pointer;font-size:9px;padding:1px 4px;border-radius:3px">🔥</button>
+</div>`;
+    });
+    h+=`${(p.horas_bloqueadas||[]).length?`<div style="font-size:9px;color:var(--red);margin-top:4px">🚫 ${p.horas_bloqueadas.length} restricciones</div>`:`<div style="font-size:9px;color:var(--grn);margin-top:4px">Sin restricciones</div>`}</div>`;
+  });
+  h+=`</div></div>`;
+  return h;
+}
+function getWeekNum(d){const onejan=new Date(d.getFullYear(),0,1);return Math.ceil((((d-onejan)/86400000)+onejan.getDay()+1)/7)}
 
 function claseCard(c){
   const sub=SJ.find(s=>s.id===c.asignatura_id);
@@ -531,7 +683,7 @@ function claseCard(c){
   return`<div style="padding:10px;border-radius:8px;margin-bottom:6px;background:${sub?.bg||'var(--card2)'};border:1px solid ${sub?.a||'var(--brd)'}30">
 <div style="display:flex;justify-content:space-between;align-items:flex-start">
 <div style="flex:1">
-<div style="font-size:12px;font-weight:700;color:${sub?.a||'var(--t)'}">${c.hora_inicio}:00–${et} · ${sub?.e||''} ${sub?.n||''}</div>
+<div style="font-size:12px;font-weight:700;color:${sub?.a||'var(--t)'}">${fmtHoraMin(c.hora_inicio)}–${et} · ${sub?.e||''} ${sub?.n||''}</div>
 <div style="font-size:12px;font-weight:600;margin-top:2px">${c.tema}</div>
 <div style="font-size:10px;color:var(--t3);margin-top:1px">${fmtDur(dur)}${brk?` + ${brk}min descanso`:''} · ${rm?.n||c.aula} · ${nStu} alum.${rate?' · '+rate+'€/h':' · (mín 2)'}</div>
 </div>
@@ -548,10 +700,46 @@ ${stuConTema.length?stuConTema.map(a=>{
 </div></div>`;
 }
 
+function tetrisBlock(c,sessions){
+  const sub=SJ.find(s=>s.id===c.asignatura_id);
+  const tInfo=(TP[c.asignatura_id]||[]).find(t=>t.name===c.tema);
+  const dur=parseFloat(c.duracion_horas||tInfo?.dur||2);
+  const brk=parseInt(c.descanso_min||tInfo?.brk||0);
+  const durMin=clsDurMin(dur,brk);
+  const nStu=(c.inscripciones||[]).length;
+  const startMin=c.hora_inicio*60;
+  // Find which session this class belongs to
+  const sess=sessions.find(s=>startMin>=s.start&&startMin<s.end);
+  return`<div class="tetris-block" style="background:${sub?.bg||'var(--card2)'};border:1px solid ${sub?.a||'var(--brd)'}40;color:${sub?.a||'var(--t)'}">
+<div style="flex:1;min-width:0">
+<div style="font-weight:700;font-size:10px">${fmtHoraMin(c.hora_inicio)}–${endTime(c.hora_inicio,dur,brk)}</div>
+<div style="font-size:10px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.tema}</div>
+<div style="font-size:9px;color:var(--t3)">${nStu} alum. · ${fmtDur(dur)}</div>
+</div>
+<div style="display:flex;gap:2px;align-items:center;flex-shrink:0">
+<button class="tetris-move" onclick="W.moverBloque('${c.id}',-15)" title="-15min">▲</button>
+<button class="tetris-move" onclick="W.moverBloque('${c.id}',15)" title="+15min">▼</button>
+<button onclick="W.moverCls('${c.id}')" style="background:none;border:1px solid var(--gold);color:var(--gold);cursor:pointer;font-size:9px;padding:2px 5px;border-radius:4px;font-family:inherit">↕</button>
+<button onclick="W.delCls('${c.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:2px">✕</button>
+</div>
+</div>`;
+}
+function tetrisTimeline(clases,teacher,sessions){
+  if(!clases.length)return'<div style="text-align:center;padding:12px;color:var(--t3);font-size:10px">Sin clases</div>';
+  let h='';
+  sessions.forEach(sess=>{
+    const sc=clases.filter(c=>{const m=c.hora_inicio*60;return m>=sess.start&&m<sess.end}).sort((a,b)=>a.hora_inicio-b.hora_inicio);
+    if(!sc.length)return;
+    h+=`<div style="font-size:9px;color:var(--t3);margin:4px 0 2px;text-transform:uppercase;letter-spacing:1px">${sess.id==='morning'?'Mañana':'Tarde'} ${fmtHoraMin(sess.start/60)}–${fmtHoraMin(sess.end/60)}</div>`;
+    sc.forEach(c=>h+=tetrisBlock(c,sessions));
+  });
+  return h;
+}
 function admHorarios(){
   const allDc=AD.clases.filter(c=>c.fecha===ADATE).sort((a,b)=>a.hora_inicio-b.hora_inicio);
   const davidDc=allDc.filter(c=>DAVID_SUBS.includes(c.asignatura_id));
   const lupeDc=allDc.filter(c=>LUPE_SUBS.includes(c.asignatura_id));
+  const sessions=getDaySessions(ADATE);
   return`<div class="fu">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
 <h2 style="font-family:'Playfair Display',serif;font-size:17px;color:var(--gold2)">Horarios (${AD.clases.length})</h2>
@@ -565,22 +753,27 @@ function admHorarios(){
 <select class="inp" id="nc-top" style="flex:2;min-width:120px;font-size:12px"><option value="">Tema...</option>${(TP[ANC.sid]||[]).map(t=>`<option value="${t.name}" ${ANC.topic===t.name?'selected':''}>${t.name} (${fmtDur(t.dur)})</option>`).join('')}</select></div>
 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
 <select class="inp" id="nc-dt" style="flex:1;font-size:12px"><option value="">Fecha...</option>${DT.map(d=>`<option value="${d}" ${ANC.date===d?'selected':''}>${fl(d)}</option>`).join('')}</select>
-<select class="inp" id="nc-hr" style="width:65px;font-size:12px">${HR.map(h=>`<option value="${h}" ${ANC.hour===h?'selected':''}>${h}:00</option>`).join('')}</select>
+<select class="inp" id="nc-hr" style="width:65px;font-size:12px">${HR.map(h=>`<option value="${h}" ${ANC.hour===h?'selected':''}>${fmtHoraMin(h)}</option>`).join('')}</select>
 <select class="inp" id="nc-rm" style="flex:1;font-size:12px">${RM.map(r=>`<option value="${r.id}" ${ANC.room===r.id?'selected':''}>${r.n} (${r.c})</option>`).join('')}</select></div>
-<button class="btn btn-s btn-g" onclick="W.addCls()">✅ Crear clase</button></div>
+<button class="btn btn-s btn-g" onclick="W.addCls()">Crear clase</button></div>
 
 <div style="display:flex;gap:3px;overflow-x:auto;padding-bottom:4px;margin-bottom:8px">${DT.map(d=>{const n=AD.clases.filter(c=>c.fecha===d).length;return`<button onclick="W.selD('${d}')" style="padding:5px 6px;border-radius:6px;border:none;cursor:pointer;font-family:inherit;background:${d===ADATE?'var(--gold)':'var(--card)'};color:${d===ADATE?'#000':'var(--t3)'};font-size:9px;font-weight:${d===ADATE?700:400};white-space:nowrap;min-width:38px">${fd(d)}${n?`<div style="font-size:7px">${n}cl</div>`:''}</button>`;}).join('')}</div>
 
 <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--gold2)">📅 ${fl(ADATE)}</div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
 <div>
-<div style="font-size:11px;font-weight:700;color:#4a9eff;margin-bottom:6px;text-align:center;padding:4px;background:rgba(74,158,255,.08);border-radius:6px">⚡ David (Física · Química)</div>
-${davidDc.length?davidDc.map(c=>claseCard(c)).join(''):'<div style="text-align:center;padding:16px;color:var(--t3);font-size:11px">Sin clases</div>'}
+<div style="font-size:11px;font-weight:700;color:#4a9eff;margin-bottom:6px;text-align:center;padding:4px;background:rgba(74,158,255,.08);border-radius:6px">⚡ David</div>
+${tetrisTimeline(davidDc,'David',sessions)}
 </div>
 <div>
-<div style="font-size:11px;font-weight:700;color:#4ade80;margin-bottom:6px;text-align:center;padding:4px;background:rgba(74,222,128,.08);border-radius:6px">📐 Lupe (Mates II · CCSS)</div>
-${lupeDc.length?lupeDc.map(c=>claseCard(c)).join(''):'<div style="text-align:center;padding:16px;color:var(--t3);font-size:11px">Sin clases</div>'}
+<div style="font-size:11px;font-weight:700;color:#4ade80;margin-bottom:6px;text-align:center;padding:4px;background:rgba(74,222,128,.08);border-radius:6px">📐 Lupe</div>
+${tetrisTimeline(lupeDc,'Lupe',sessions)}
 </div>
+</div>
+<div style="margin-top:14px;border-top:1px solid var(--brd);padding-top:10px">
+<div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px">Detalle clases</div>
+${allDc.map(c=>claseCard(c)).join('')}
+${!allDc.length?'<div style="text-align:center;padding:12px;color:var(--t3);font-size:11px">Sin clases este día</div>':''}
 </div>
 </div>`}
 
@@ -637,9 +830,9 @@ function renderSP(){
       const rate=myInsc?.precio_hora||(st.es_externo?tarifaExt(nStu):tarifa(nStu));
       const cost=Math.round(rate*dur*100)/100;total+=cost;
       const et=endTime(c.hora_inicio,dur,brk);
-      m+=`  📅 ${fl(c.fecha)} · ${c.hora_inicio}:00–${et}${brk?` (${fmtDur(dur)} + ${brk}' descanso)`:` (${fmtDur(dur)})`}\n`;
+      m+=`  📅 ${fl(c.fecha)} · ${fmtHoraMin(c.hora_inicio)}–${et}${brk?` (${fmtDur(dur)} + ${brk}' descanso)`:` (${fmtDur(dur)})`}\n`;
       m+=`     ${c.tema}\n`;
-      m+=`     ${nStu} alumnos → ${rate}€/h · *${cost}€ esta clase*\n`;
+      m+=`     ${nStu} alumnos → ${rate}€/h${st.es_externo?' (+5€/h externo)':''} · *${cost}€ esta clase*\n`;
     });
   });
   m+=`\n━━━━━━━━━━━━━━━━━━━━\n💰 *TOTAL ESTIMADO: ${Math.round(total*100)/100}€*\n\n⚠️ Los horarios son firmes una vez confirmados.\n¿Confirmas asistencia? Responde *SÍ* 🙏`;
@@ -656,10 +849,12 @@ function shareMsg(){if(navigator.share)navigator.share({text:LAST_MSG}).catch(()
 
 // ═══ WIZARD ACTIONS ═══
 const W={};
-W.addT=function(sid,n){S.data[sid].topics.push({name:n,priority:S.data[sid].topics.length+1,urgent:false});R()};
+W.setEbau=function(sid,v){S.data[sid].ebau=v;R()};
+W.addT=function(sid,n){S.data[sid].topics.push({name:n,priority:S.data[sid].topics.length+1,urgent:null});R()};
 W.rmT=function(sid,n){const d=S.data[sid];d.topics=d.topics.filter(t=>t.name!==n);d.topics.forEach((t,i)=>t.priority=i+1);R()};
 W.movT=function(sid,i,dir){const d=S.data[sid];const n=i+dir;if(n<0||n>=d.topics.length)return;[d.topics[i],d.topics[n]]=[d.topics[n],d.topics[i]];d.topics.forEach((t,j)=>t.priority=j+1);R()};
 W.togUrg=function(sid,n){const t=S.data[sid].topics.find(x=>x.name===n);if(t)t.urgent=!t.urgent;R()};
+W.setUrg=function(sid,n,v){const t=S.data[sid].topics.find(x=>x.name===n);if(t)t.urgent=v;R()};
 W.togDay=function(sid,ds){S.openDay[sid]=S.openDay[sid]===ds?null:ds;R()};
 W.togHr=function(sid,dt,hr){
   const d=S.data[sid];const key=dt+'-'+hr;const i=d.blocked.indexOf(key);
@@ -669,6 +864,45 @@ W.togHr=function(sid,dt,hr){
 W.setWNote=function(sid,v){S.data[sid].blockNote=v};
 W.cpBl=function(sid){const f=S.data[sid].blocked;S.subs.forEach(s=>{if(s!==sid)S.data[s].blocked=[...f]});toast('Copiado ✓',true)};
 W.togExp=function(id){AEXP[id]=!AEXP[id];R()};
+W.editField=function(id,field,val){if(!AEXP_EDIT[id])AEXP_EDIT[id]={};AEXP_EDIT[id][field]=val};
+W.saveAluEdit=async function(id){
+  const ed=AEXP_EDIT[id];if(!ed||!Object.keys(ed).length){toast('Sin cambios');return}
+  showOv(true,'Guardando...');
+  await db.from('alumnos').update(ed).eq('id',id);
+  const a=AD.alumnos.find(x=>x.id===id);if(a)Object.assign(a,ed);
+  delete AEXP_EDIT[id];showOv(false);toast('Guardado',true);R();
+};
+W.undoAluEdit=function(id){delete AEXP_EDIT[id];R();toast('Cambios descartados')};
+W.togAvail=async function(aluId,dt,hr){
+  const a=AD.alumnos.find(x=>x.id===aluId);if(!a)return;
+  const peds=a.peticiones||[];
+  const key=dt+'-'+hr;
+  for(const p of peds){
+    const bl=p.horas_bloqueadas||[];
+    const idx=bl.indexOf(key);
+    if(idx>=0)bl.splice(idx,1);else bl.push(key);
+    await db.from('peticiones').update({horas_bloqueadas:bl}).eq('id',p.id);
+  }
+  R();
+};
+W.movPetT=async function(aluId,subId,idx,dir){
+  const a=AD.alumnos.find(x=>x.id===aluId);if(!a)return;
+  const p=(a.peticiones||[]).find(x=>x.asignatura_id===subId);if(!p)return;
+  const temas=p.temas||[];const ni=idx+dir;
+  if(ni<0||ni>=temas.length)return;
+  [temas[idx],temas[ni]]=[temas[ni],temas[idx]];
+  temas.forEach((t,i)=>t.priority=i+1);
+  await db.from('peticiones').update({temas:temas}).eq('id',p.id);
+  R();
+};
+W.togPetUrg=async function(aluId,subId,name){
+  const a=AD.alumnos.find(x=>x.id===aluId);if(!a)return;
+  const p=(a.peticiones||[]).find(x=>x.asignatura_id===subId);if(!p)return;
+  const t=(p.temas||[]).find(x=>x.name===name);if(!t)return;
+  t.urgent=!t.urgent;
+  await db.from('peticiones').update({temas:p.temas}).eq('id',p.id);
+  R();
+};
 W.togEdit=async function(id,val){
   await db.from('alumnos').update({puede_editar:val}).eq('id',id);
   const a=AD.alumnos.find(x=>x.id===id);if(a)a.puede_editar=val;R();toast(val?'Edición activada':'Edición desactivada',val);
@@ -742,56 +976,43 @@ W.togCS=async function(cid,aid){
 function getDaySessions(date){
   const dow=new Date(date+'T12:00:00').getDay();
   const special=['2026-04-01','2026-04-02'].includes(date);
-  if(special)return[{id:'morning',start:9*60,end:14*60,prio:6}];
-  if(dow===5)return[{id:'afternoon',start:18*60,end:22*60,prio:5}];
-  if(dow===6)return[{id:'afternoon',start:16*60,end:22*60,prio:1},{id:'morning',start:9*60,end:14*60,prio:2}];
-  if(dow===0)return[{id:'morning',start:9*60,end:14*60,prio:3},{id:'afternoon',start:16*60,end:22*60,prio:4}];
+  if(special)return[{id:'morning',start:8*60,end:14*60+10,prio:6}];
+  if(dow===5)return[{id:'afternoon',start:18*60,end:22*60+10,prio:5}];
+  if(dow===6)return[{id:'afternoon',start:16*60,end:22*60+10,prio:1},{id:'morning',start:8*60,end:14*60+10,prio:2}];
+  if(dow===0)return[{id:'morning',start:8*60,end:14*60+10,prio:3},{id:'afternoon',start:16*60,end:22*60+10,prio:4}];
   return[];
 }
-// Duración total en minutos incluyendo descanso y transición entre clases
-function clsDurMin(dur,brk){return Math.ceil(parseFloat(dur||2)*60)+parseInt(brk||0)}
-// Calcula hora_inicio para siguiente clase en sesión
-// afternoon=forward desde ultimo fin; morning=backward desde inicio mas tarde
+// Duración total en minutos incluyendo descanso
+function clsDurMin(dur,brk){return Math.round(parseFloat(dur||2)*60)+parseInt(brk||0)}
+// Calcula hora_inicio (decimal) para siguiente clase en sesión, con granularidad 15 min
 function nextHoraInicio(session,clasesPuestas,newDurMin,teacher){
   const{start,end,id}=session;
-  const TRANS=5; // minutos entre clases
+  const TRANS=5;
   const teacherCls=clasesPuestas.filter(c=>SJ.find(s=>s.id===c.asignatura_id)?.t===teacher);
-  if(id==='afternoon'||id==='morning'&&teacherCls.length===0){
-    // afternoon: forward desde último fin
-    if(id==='afternoon'){
-      let cursor=start;
-      teacherCls.sort((a,b)=>a.hora_inicio-b.hora_inicio).forEach(c=>{
-        const cEnd=c.hora_inicio*60+clsDurMin(c.duracion_horas,c.descanso_min)+TRANS;
-        if(cEnd>cursor)cursor=cEnd;
-      });
-      const h=Math.ceil(cursor/60);
-      if(h*60+newDurMin>end)return null;
-      return h;
+  // Construir lista de intervalos ocupados por el profesor (en minutos)
+  const busy=teacherCls.map(c=>({
+    s:c.hora_inicio*60,
+    e:c.hora_inicio*60+clsDurMin(c.duracion_horas,c.descanso_min)
+  })).sort((a,b)=>a.s-b.s);
+
+  if(id==='afternoon'){
+    // Forward fill: buscar el primer hueco disponible desde el inicio de sesión
+    let cursor=start;
+    for(const b of busy){
+      if(b.s>=cursor+TRANS+newDurMin)break;
+      if(b.e+TRANS>cursor)cursor=b.e+TRANS;
     }
+    const h15=Math.ceil(cursor/15)*15;
+    if(h15+newDurMin>end)return null;
+    return h15/60;
   }
-  // morning: busca el hueco más tarde posible (más cercano al fin de sesión)
+
   if(id==='morning'){
-    // Ordenar clases existentes del profesor por hora de inicio
-    const sorted=teacherCls.slice().sort((a,b)=>a.hora_inicio-b.hora_inicio);
-    // Construir lista de ventanas libres de la sesión
-    // Una ventana libre es un rango [windowStart, windowEnd] sin clases del profesor
-    const windows=[];
-    let wStart=start;
-    for(const c of sorted){
-      const cS=c.hora_inicio*60;
-      if(cS>wStart+TRANS)windows.push({s:wStart,e:cS-TRANS});
-      wStart=cS+clsDurMin(c.duracion_horas,c.descanso_min)+TRANS;
-    }
-    if(wStart<end)windows.push({s:wStart,e:end});
-    // Buscar el hueco más tardío donde quepa la nueva clase (maximiza hora de inicio)
-    for(let i=windows.length-1;i>=0;i--){
-      const{s,e}=windows[i];
-      if(e-s<newDurMin)continue; // hueco demasiado pequeño
-      // Colocar lo más tarde posible dentro del hueco
-      const horaInicioMin=e-newDurMin;
-      if(horaInicioMin<start)continue;
-      const h=Math.floor(horaInicioMin/60);
-      if(h*60>=s)return h; // cabe dentro del hueco
+    // Buscar el último hueco disponible (más tardío) dentro de la sesión
+    for(let t=end-newDurMin;t>=start;t-=15){
+      const tE=t+newDurMin;
+      const overlaps=busy.some(b=>t<b.e+TRANS&&tE+TRANS>b.s);
+      if(!overlaps)return t/60;
     }
     return null;
   }
@@ -899,15 +1120,25 @@ W.autoOrg=async function(){
         durMin,sub.t);
       if(horaInicio===null)continue;
 
-      // Verificar profesor no tiene solapamiento con otra clase
-      {const nS=horaInicio*60,nE=nS+durMin;
-      if(res.some(c=>{if(c.fecha!==date)return false;if(SJ.find(s=>s.id===c.asignatura_id)?.t!==sub.t)return false;const cS=c.hora_inicio*60,cE=cS+clsDurMin(c.duracion_horas,c.descanso_min);return nS<cE&&nE>cS;}))continue;}
+      // Verificar profesor no tiene solapamiento con otra clase (exhaustivo)
+      {const newS=horaInicio*60,newE=newS+durMin;
+      const teacherConflict=res.some(c=>{
+        if(c.fecha!==date)return false;
+        if(SJ.find(s=>s.id===c.asignatura_id)?.t!==sub.t)return false;
+        const cS=c.hora_inicio*60,cE=cS+clsDurMin(c.duracion_horas,c.descanso_min);
+        return newS<cE+5&&newE+5>cS;
+      });
+      if(teacherConflict)continue;}
 
       // Filtrar alumnos disponibles para esa fecha+hora
       const av=info.sts.filter(sid=>{
         const ped=info.stuMap[sid];
         // Bloqueado
-        if((ped.horas_bloqueadas||[]).includes(date+'-'+horaInicio))return false;
+        // Check if any blocked hour overlaps with the class time span
+        const blk=ped.horas_bloqueadas||[];
+        const clsS=horaInicio*60,clsE=clsS+durMin;
+        const hasBlock=blk.some(b=>{if(!b.startsWith(date+'-'))return false;const bhr=parseInt(b.split('-').pop());return bhr*60<clsE&&(bhr+1)*60>clsS});
+        if(hasBlock)return false;
         // Solape
         if(stuSolape(sid,date,horaInicio,durMin,res))return false;
         // Máx 3 clases en el día
@@ -964,6 +1195,45 @@ W.autoOrg=async function(){
   R();
 };
 
+// ═══ MOVER BLOQUE 15min ═══
+W.moverBloque=async function(cid,delta){
+  const c=AD.clases.find(x=>x.id===cid);if(!c)return;
+  const sub=SJ.find(s=>s.id===c.asignatura_id);
+  const tInfo=(TP[c.asignatura_id]||[]).find(t=>t.name===c.tema);
+  const dur=parseFloat(c.duracion_horas||tInfo?.dur||2);
+  const brk=parseInt(c.descanso_min||tInfo?.brk||0);
+  const durMin=clsDurMin(dur,brk);
+  const sessions=getDaySessions(c.fecha);
+  const curMin=c.hora_inicio*60;
+  const newMin=curMin+delta;
+  const newH=newMin/60;
+  // Check session bounds
+  const sess=sessions.find(s=>newMin>=s.start&&newMin+durMin<=s.end);
+  if(!sess){toast('Fuera de sesión');return}
+  // Check teacher overlap (push if needed)
+  const otherCls=AD.clases.filter(x=>x.id!==cid&&x.fecha===c.fecha&&SJ.find(s=>s.id===x.asignatura_id)?.t===sub.t);
+  const nS=newMin,nE=newMin+durMin;
+  const conflict=otherCls.find(x=>{const cS=x.hora_inicio*60,cE=cS+clsDurMin(x.duracion_horas,x.descanso_min);return nS<cE+5&&nE+5>cS});
+  if(conflict){
+    // Try to push the conflicting class
+    const cfDur=clsDurMin(conflict.duracion_horas,conflict.descanso_min);
+    const pushMin=conflict.hora_inicio*60+delta;
+    const pushSess=sessions.find(s=>pushMin>=s.start&&pushMin+cfDur<=s.end);
+    if(!pushSess){toast('No se puede empujar la clase adyacente');return}
+    await db.from('clases').update({hora_inicio:pushMin/60}).eq('id',conflict.id);
+    conflict.hora_inicio=pushMin/60;
+  }
+  // Check student overlap (warn only)
+  const stuIds=(c.inscripciones||[]).map(i=>i.alumno_id);
+  const stuConf=stuIds.filter(sid=>{
+    const otherStu=AD.clases.filter(x=>x.id!==cid&&x.fecha===c.fecha&&(x.inscripciones||[]).some(i=>i.alumno_id===sid));
+    return otherStu.some(x=>{const cS=x.hora_inicio*60,cE=cS+clsDurMin(x.duracion_horas,x.descanso_min);return nS<cE&&nE>cS});
+  });
+  if(stuConf.length){toast('Aviso: solape de alumno(s): '+stuConf.map(sid=>{const a=AD.alumnos.find(x=>x.id===sid);return a?.nombre||sid}).join(', '))}
+  await db.from('clases').update({hora_inicio:newH}).eq('id',cid);
+  c.hora_inicio=newH;
+  R();
+};
 // ═══ MOVER CLASE (Tetris) ═══
 W.moverCls=function(cid){
   const c=AD.clases.find(x=>x.id===cid);if(!c)return;
@@ -994,7 +1264,7 @@ W.moverCls=function(cid){
 
     // Verificar solapes de alumnos
     const solapes=stuIds.filter(sid=>stuSolape(sid,date,horaInicio,durMin,clsExcl));
-    huecos.push({date,horaInicio,solapes,label:`${fl(date)} ${horaInicio}:00–${endTime(horaInicio,dur,brk)}`});
+    huecos.push({date,horaInicio,solapes,label:`${fl(date)} ${fmtHoraMin(horaInicio)}–${endTime(horaInicio,dur,brk)}`});
     if(huecos.length>=20)break;
   }
 
@@ -1032,7 +1302,7 @@ W.confirmarMover=async function(cid,newDate,newHour){
   await db.from('clases').update({fecha:newDate,hora_inicio:newHour}).eq('id',cid);
   c.fecha=newDate;c.hora_inicio=newHour;
   document.querySelectorAll('[id^="move-panel-"]').forEach(el=>el.remove());
-  ADATE=newDate;toast('✅ Clase movida a '+fl(newDate)+' '+newHour+':00',true);R();
+  ADATE=newDate;toast('Clase movida a '+fl(newDate)+' '+fmtHoraMin(newHour),true);R();
 };
 
 W.moverAlumno=function(cid,stuId){
@@ -1041,8 +1311,8 @@ W.moverAlumno=function(cid,stuId){
   const candidatas=AD.clases.filter(x=>x.id!==cid&&x.asignatura_id===c.asignatura_id&&x.tema===c.tema&&!(x.inscripciones||[]).some(i=>i.alumno_id===stuId));
   const a=AD.alumnos.find(x=>x.id===stuId);
   if(!candidatas.length){toast('No hay otra clase de este tema');return}
-  const opciones=candidatas.map(x=>`${fl(x.fecha)} ${x.hora_inicio}:00 (${(x.inscripciones||[]).length} alum.)`).join('\n');
-  const idx=candidatas.length===1?0:parseInt(prompt(`¿A qué clase mover a ${a?.nombre}?\n\n${candidatas.map((x,i)=>`${i+1}. ${fl(x.fecha)} ${x.hora_inicio}:00 (${(x.inscripciones||[]).length} alum.)`).join('\n')}\n\nEscribe el número:`),10)-1;
+  const opciones=candidatas.map(x=>`${fl(x.fecha)} ${fmtHoraMin(x.hora_inicio)} (${(x.inscripciones||[]).length} alum.)`).join('\n');
+  const idx=candidatas.length===1?0:parseInt(prompt(`¿A qué clase mover a ${a?.nombre}?\n\n${candidatas.map((x,i)=>`${i+1}. ${fl(x.fecha)} ${fmtHoraMin(x.hora_inicio)} (${(x.inscripciones||[]).length} alum.)`).join('\n')}\n\nEscribe el número:`),10)-1;
   if(isNaN(idx)||idx<0||idx>=candidatas.length)return;
   W.togCS(cid,stuId).then(()=>W.togCS(candidatas[idx].id,stuId));
 };
@@ -1050,15 +1320,20 @@ W.moverAlumno=function(cid,stuId){
 // ═══ BIND ═══
 function bind(){
   // Splash
-  document.getElementById('go-new')?.addEventListener('click',()=>{REG={step:'datos',nombre:'',apellidos:'',telefono:'',centro:'',esExterno:false,prefConcentrar:false,pin:'',pinBuf:'',pinBuf2:'',pinPhase:1};go('reg')});
+  document.getElementById('go-new')?.addEventListener('click',()=>{REG={step:'datos',nombre:'',apellidos:'',telefono:'',centro:'',_centroOtro:'',esExterno:false,prefConcentrar:false,pin:'',pinBuf:'',pinBuf2:'',pinPhase:1};go('reg')});
   document.getElementById('go-login')?.addEventListener('click',()=>{LG={nombre:'',apellidos:'',pinBuf:''};go('login')});
   document.getElementById('go-adm')?.addEventListener('click',()=>go('admin-login'));
 
+  // Theme toggle
+  document.getElementById('theme-toggle')?.addEventListener('click',toggleTheme);
+
   // Registro datos
-  document.getElementById('r-nombre')?.addEventListener('input',function(){REG.nombre=this.value;document.getElementById('next').disabled=!(REG.nombre.trim()&&REG.apellidos.trim()&&REG.centro.trim())});
-  document.getElementById('r-apellidos')?.addEventListener('input',function(){REG.apellidos=this.value;document.getElementById('next').disabled=!(REG.nombre.trim()&&REG.apellidos.trim()&&REG.centro.trim())});
+  function updRegNext(){const centroOk=REG.centro&&REG.centro!=='OTRO'||REG._centroOtro?.trim();const b=document.getElementById('next');if(b)b.disabled=!(REG.nombre.trim()&&REG.apellidos.trim()&&centroOk)}
+  document.getElementById('r-nombre')?.addEventListener('input',function(){REG.nombre=this.value;updRegNext()});
+  document.getElementById('r-apellidos')?.addEventListener('input',function(){REG.apellidos=this.value;updRegNext()});
   document.getElementById('r-telefono')?.addEventListener('input',function(){REG.telefono=this.value});
-  document.getElementById('r-centro')?.addEventListener('input',function(){REG.centro=this.value;document.getElementById('next').disabled=!(REG.nombre.trim()&&REG.apellidos.trim()&&REG.centro.trim())});
+  document.getElementById('r-centro-sel')?.addEventListener('change',function(){REG.centro=this.value;if(this.value==='OTRO'){REG._centroOtro='';R()}else{REG._centroOtro='';updRegNext()}});
+  document.getElementById('r-centro-otro')?.addEventListener('input',function(){REG._centroOtro=this.value;updRegNext()});
 
   // Registro config
   document.querySelectorAll('input[name="tipo"]').forEach(r=>r.addEventListener('change',function(){REG.esExterno=this.value==='externo';document.querySelectorAll('.radio-card').forEach(c=>c.classList.remove('sel'));this.closest('.radio-card')?.classList.add('sel')}));
@@ -1172,14 +1447,13 @@ function bind(){
   document.querySelectorAll('.sjc').forEach(c=>c.addEventListener('click',()=>{
     const id=c.dataset.id;
     if(S.subs.includes(id)){S.subs=S.subs.filter(s=>s!==id);delete S.data[id]}
-    else{S.subs.push(id);S.data[id]={ebau:true,finalDate:'',estimated:false,weekHint:'',topics:[],blocked:[],blockNote:''};S.tabs[id]='topics';S.openDay[id]=null}
+    else{S.subs.push(id);S.data[id]={ebau:null,finalDate:'',estimated:false,weekHint:'',topics:[],blocked:[],blockNote:''};S.tabs[id]='topics';S.openDay[id]=null}
     R();
   }));
   // Wizard: subject detail
   const sid=S.subs[S.step-1];
   if(sid&&S.data[sid]){
-    document.getElementById('ebau-tog')?.addEventListener('click',()=>{S.data[sid].ebau=!S.data[sid].ebau;R()});
-    document.getElementById('i-final')?.addEventListener('change',function(){S.data[sid].finalDate=this.value;document.getElementById('next').disabled=!(S.data[sid].topics.length&&S.data[sid].finalDate)});
+    document.getElementById('i-final')?.addEventListener('change',function(){S.data[sid].finalDate=this.value;R()});
     document.getElementById('chk-est')?.addEventListener('change',function(){S.data[sid].estimated=this.checked;R()});
     document.getElementById('i-week')?.addEventListener('input',function(){S.data[sid].weekHint=this.value});
     document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click',()=>{S.tabs[sid]=t.dataset.tab;R()}));
@@ -1195,7 +1469,7 @@ function startWizard(){
 function genMsg(){
   let m=`🎓 REPASOS EBAU · COCO SAPIENS\n━━━━━━━━━━━━━━━━━━━━\n👤 ${REG.nombre} ${REG.apellidos}\n`;
   if(REG.telefono)m+=`📱 ${REG.telefono}\n`;
-  m+=`🏫 ${REG.centro}\n`;
+  m+=`🏫 ${getCentro()}\n`;
   m+=`🎓 ${REG.esExterno?'Alumno externo':'Alumno del curso'}\n`;
   m+=`📋 Preferencia: ${REG.prefConcentrar?'Clases concentradas':'Clases repartidas'}\n`;
   S.subs.forEach(sid=>{
@@ -1215,17 +1489,21 @@ function genMsg(){
   S.msg=m;
 }
 
+function getCentro(){return REG.centro==='OTRO'?(REG._centroOtro||'').trim():REG.centro}
 async function saveToSupabase(){
   showOv(true,'Guardando tu petición...');
+  const centro=getCentro();
   try{
-    // Check if alumno already exists
-    const {data:existing}=await db.from('alumnos').select('id').eq('nombre',REG.nombre).eq('apellidos',REG.apellidos).maybeSingle();
+    // Check if alumno already exists (normalized)
+    const {data:allA}=await db.from('alumnos').select('id,nombre,apellidos');
+    const nN=normStr(REG.nombre),nAp=normStr(REG.apellidos);
+    const existing=allA?.find(a=>normStr(a.nombre)===nN&&normStr(a.apellidos)===nAp)||null;
     let alumnoId;
     if(existing){
       alumnoId=existing.id;
-      await db.from('alumnos').update({telefono:REG.telefono,centro:REG.centro,es_externo:REG.esExterno,prefiere_concentrar:REG.prefConcentrar,pin:REG.pin}).eq('id',alumnoId);
+      await db.from('alumnos').update({telefono:REG.telefono,centro:centro,es_externo:REG.esExterno,prefiere_concentrar:REG.prefConcentrar,pin:REG.pin}).eq('id',alumnoId);
     } else {
-      const {data:newA,error:errA}=await db.from('alumnos').insert({nombre:REG.nombre,apellidos:REG.apellidos,telefono:REG.telefono,centro:REG.centro,es_externo:REG.esExterno,prefiere_concentrar:REG.prefConcentrar,pin:REG.pin}).select().single();
+      const {data:newA,error:errA}=await db.from('alumnos').insert({nombre:REG.nombre,apellidos:REG.apellidos,telefono:REG.telefono,centro:centro,es_externo:REG.esExterno,prefiere_concentrar:REG.prefConcentrar,pin:REG.pin}).select().single();
       if(errA)throw errA;
       alumnoId=newA.id;
     }
@@ -1259,7 +1537,10 @@ function editarPeticion(){
 // ═══ SUPABASE OPS ═══
 async function doLogin(){
   showOv(true,'Verificando...');
-  const {data,error}=await db.from('alumnos').select('*, peticiones(*)').eq('nombre',LG.nombre).eq('apellidos',LG.apellidos).eq('pin',LG.pinBuf).maybeSingle();
+  // Fetch all alumnos and compare normalized
+  const {data:allAlumnos,error}=await db.from('alumnos').select('*, peticiones(*)');
+  const nNombre=normStr(LG.nombre),nApellidos=normStr(LG.apellidos),nPin=String(LG.pinBuf).trim();
+  const data=allAlumnos?.find(a=>normStr(a.nombre)===nNombre&&normStr(a.apellidos)===nApellidos&&String(a.pin).trim()===nPin)||null;
   if(error||!data){
     showOv(false);
     document.getElementById('pin-err').textContent='PIN incorrecto o datos no encontrados';
