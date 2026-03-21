@@ -129,6 +129,7 @@ let STU_CFG={};
 let ADMIN=false;
 let AD={alumnos:[],clases:[],config:{}};
 let LAST_MSG='';
+let STU_VIEW='subj'; // 'subj' | 'chrono'
 let AT='alumnos',ADATE=DT[0],ASTU='',ANEW=false,ANC={sid:'fisica',topic:'',date:'',hour:16,room:'fondo'},ASRCH='',AEXP={};
 let AEXP_EDIT={};
 
@@ -482,38 +483,41 @@ ${(STU_CFG.edicion_activa!=='false'&&ALUMNO.puede_editar)?`<button id="btn-edit"
 </div>`:`<div style="background:var(--card);border-radius:14px;padding:20px;border:1px solid var(--brd);margin-bottom:12px;text-align:center;color:var(--t2);font-size:13px">No hay petición registrada</div>`}
 
 <div style="background:var(--card);border-radius:14px;padding:16px;border:1px solid var(--brd)">
-<div style="font-weight:700;font-size:15px;margin-bottom:12px;color:var(--gold2)">📅 Mis clases asignadas</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+<div style="font-weight:700;font-size:15px;color:var(--gold2)">📅 Mis clases asignadas</div>
+${ALUMNO_CLASES.length?`<div style="display:flex;gap:4px"><button id="stu-v-subj" class="btn btn-s" style="padding:5px 10px;font-size:11px;${STU_VIEW==='subj'?'background:var(--gold);color:#000;':'opacity:0.5;'}">Por materia</button><button id="stu-v-chrono" class="btn btn-s" style="padding:5px 10px;font-size:11px;${STU_VIEW==='chrono'?'background:var(--gold);color:#000;':'opacity:0.5;'}">Cronológico</button></div>`:''}
+</div>
 ${ALUMNO_CLASES.length?stuClasesH():`<div style="text-align:center;color:var(--t3);font-size:13px;padding:12px 0">Todavía no tienes clases asignadas.<br><span style="font-size:11px">Te avisaremos cuando estén listas.</span></div>`}
 </div>
 </div></div>`}
 
 function stuClasesH(){
-  let total=0;
-  const bySubj={};
-  ALUMNO_CLASES.forEach(c=>{
-    if(!bySubj[c.asignatura_id])bySubj[c.asignatura_id]=[];
-    bySubj[c.asignatura_id].push(c);
-  });
-  let h='';
-  Object.entries(bySubj).forEach(([sid,cls])=>{
-    const s=SJ.find(x=>x.id===sid);if(!s)return;
-    h+=`<div style="margin-bottom:10px"><div style="font-weight:700;color:${s.a};font-size:13px;margin-bottom:6px">${s.e} ${s.n}</div>`;
-    cls.sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.hora_inicio-b.hora_inicio).forEach(c=>{
-      const insc=c.inscripciones||[];
-      const myInsc=insc.find(i=>i.alumno_id===ALUMNO.id);
-      const nStu=insc.length;
-      const ph=myInsc?myInsc.precio_hora:(ALUMNO.es_externo?tarifaExt(nStu):tarifa(nStu));
-      const pt=myInsc?myInsc.precio_total:Math.round(ph*(c.duracion_horas||2)*100)/100;
-      total+=pt;
-      h+=`<div style="padding:10px;border-radius:10px;background:var(--card2);margin-bottom:6px">
+  const claseCard=(c,sub)=>{
+    const tInfo=(TP[c.asignatura_id]||[]).find(t=>t.name===c.tema);
+    const dur=parseFloat(c.duracion_horas||tInfo?.dur||2);
+    const brk=parseInt(c.descanso_min||tInfo?.brk||0);
+    const s=sub||SJ.find(x=>x.id===c.asignatura_id);
+    return`<div style="padding:10px;border-radius:10px;background:var(--card2);margin-bottom:6px;border-left:3px solid ${s?.a||'var(--brd)'}">
 <div style="font-weight:600;font-size:13px">${c.tema}</div>
-<div style="font-size:12px;color:var(--t2);margin-top:2px">${fl(c.fecha)} · ${fmtHoraMin(c.hora_inicio)} · ${fmtDur(c.duracion_horas||2)}</div>
-<div style="font-size:12px;color:var(--gold);margin-top:2px;font-weight:600">${pt}€ esta clase (${nStu} alum. → ${ph}€/h${ALUMNO.es_externo?' +5€/h externo':''})</div>
+<div style="font-size:12px;color:var(--t2);margin-top:3px">${fl(c.fecha)} · ${fmtHoraMin(c.hora_inicio)}–${endTime(c.hora_inicio,dur,brk)}${brk?` <span style="font-size:10px;color:var(--t3)">(inc. ${brk}' descanso)</span>`:''}</div>
+${STU_VIEW==='chrono'?`<div style="font-size:10px;color:${s?.a||'var(--t3)'};margin-top:2px;font-weight:600">${s?.e||''} ${s?.n||''}</div>`:''}
 </div>`;
+  };
+  let h='';
+  if(STU_VIEW==='subj'){
+    const bySubj={};
+    ALUMNO_CLASES.forEach(c=>{if(!bySubj[c.asignatura_id])bySubj[c.asignatura_id]=[];bySubj[c.asignatura_id].push(c)});
+    Object.entries(bySubj).forEach(([sid,cls])=>{
+      const s=SJ.find(x=>x.id===sid);if(!s)return;
+      h+=`<div style="margin-bottom:10px"><div style="font-weight:700;color:${s.a};font-size:13px;margin-bottom:6px">${s.e} ${s.n}</div>`;
+      cls.sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.hora_inicio-b.hora_inicio).forEach(c=>{h+=claseCard(c,s)});
+      h+=`</div>`;
     });
-    h+=`</div>`;
-  });
-  h+=`<div style="border-top:1px solid var(--brd);padding-top:10px;text-align:right;font-weight:700;color:var(--gold2)">Total estimado: ${total}€</div>`;
+  } else {
+    const sorted=[...ALUMNO_CLASES].sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.hora_inicio-b.hora_inicio);
+    sorted.forEach(c=>{h+=claseCard(c,null)});
+  }
+  h+=`<div style="border-top:1px solid var(--brd);padding-top:8px;text-align:center;font-size:11px;color:var(--t3);margin-top:4px">${ALUMNO_CLASES.length} clase${ALUMNO_CLASES.length!==1?'s':''} asignada${ALUMNO_CLASES.length!==1?'s':''}</div>`;
   return h;
 }
 
@@ -794,21 +798,20 @@ ${AD.alumnos.map(a=>`<div style="display:flex;justify-content:space-between;alig
 </div></div>`}
 
 function admEnviar(){
-  // Solo alumnos con al menos una clase asignada
   const conClases=AD.alumnos.filter(a=>AD.clases.some(c=>(c.inscripciones||[]).some(i=>i.alumno_id===a.id)));
   return`<div class="fu"><h2 style="font-family:'Playfair Display',serif;font-size:17px;color:var(--gold2);margin-bottom:10px">Comunicar horarios</h2>
 ${conClases.length?'':`<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:10px;margin-bottom:10px;font-size:12px;color:var(--warn)">⚠️ Aún no hay clases asignadas. Ve a Horarios y asigna alumnos primero.</div>`}
-<select class="inp" id="sd-stu" style="margin-bottom:12px"><option value="">Selecciona alumno...</option>${conClases.map(a=>`<option value="${a.id}" ${ASTU===a.id?'selected':''}>${esc(a.nombre)} ${esc(a.apellidos)}${a.es_externo?' (EXT)':''}</option>`).join('')}</select>
+<select class="inp" id="sd-stu" style="margin-bottom:10px"><option value="">Selecciona alumno...</option>${conClases.map(a=>`<option value="${a.id}" ${ASTU===a.id?'selected':''}>${esc(a.nombre)} ${esc(a.apellidos)}${a.es_externo?' (EXT)':''}</option>`).join('')}</select>
+<div style="display:flex;gap:6px;margin-bottom:12px"><button id="btn-sp-nopr" class="btn btn-s btn-o" style="flex:1;padding:10px;font-size:12px">📅 Enviar horarios</button><button id="btn-sp-conpr" class="btn btn-s" style="flex:1;padding:10px;font-size:12px;background:rgba(212,168,83,.12);border:1px solid rgba(212,168,83,.3);color:var(--gold)">💰 Enviar con tarifas</button></div>
 <div id="sd-pv"></div></div>`}
 
-function renderSP(){
-  const el=document.getElementById('sd-pv');if(!el||!ASTU)return;
-  const st=AD.alumnos.find(a=>a.id===ASTU);if(!st){el.innerHTML='';return}
+function buildMsgSP(conPrecio){
+  const st=AD.alumnos.find(a=>a.id===ASTU);if(!st)return'';
   const sc=AD.clases.filter(c=>(c.inscripciones||[]).some(i=>i.alumno_id===ASTU)&&(c.inscripciones||[]).length>=2).sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.hora_inicio-b.hora_inicio);
-  if(!sc.length){el.innerHTML=`<div style="color:var(--t3);font-size:12px;text-align:center;padding:12px">Sin clases asignadas aún</div>`;return}
+  if(!sc.length)return'';
   let total=0;
   let m=`🎓 *REPASOS EBAU - Coco Sapiens*\n\nHola ${st.nombre}, tus clases:\n`;
-  const bs={};sc.forEach(c=>{const s=SJ.find(x=>x.id===c.asignatura_id);if(!bs[s?.n||c.asignatura_id])bs[s?.n||c.asignatura_id]=[];bs[s?.n||c.asignatura_id].push(c)});
+  const bs={};sc.forEach(c=>{const s=SJ.find(x=>x.id===c.asignatura_id);const k=s?.n||c.asignatura_id;if(!bs[k])bs[k]=[];bs[k].push(c)});
   Object.entries(bs).forEach(([n,cls])=>{
     m+=`\n📚 *${n}*\n`;
     cls.forEach(c=>{
@@ -816,18 +819,30 @@ function renderSP(){
       const tInfo=(TP[c.asignatura_id]||[]).find(t=>t.name===c.tema);
       const dur=parseFloat(c.duracion_horas||tInfo?.dur||2);
       const brk=parseInt(c.descanso_min||tInfo?.brk||0);
-      const myInsc=insc.find(i=>i.alumno_id===st.id);
-      const rate=myInsc?.precio_hora||(st.es_externo?tarifaExt(nStu):tarifa(nStu));
-      const cost=Math.round(rate*dur*100)/100;total+=cost;
       const et=endTime(c.hora_inicio,dur,brk);
       m+=`  📅 ${fl(c.fecha)} · ${fmtHoraMin(c.hora_inicio)}–${et}${brk?` (${fmtDur(dur)} + ${brk}' descanso)`:` (${fmtDur(dur)})`}\n`;
       m+=`     ${c.tema}\n`;
-      m+=`     ${nStu} alumnos → ${rate}€/h${st.es_externo?' (+5€/h externo)':''} · *${cost}€ esta clase*\n`;
+      if(conPrecio){
+        const myInsc=insc.find(i=>i.alumno_id===st.id);
+        const rate=myInsc?.precio_hora||(st.es_externo?tarifaExt(nStu):tarifa(nStu));
+        const cost=Math.round(rate*dur*100)/100;total+=cost;
+        m+=`     ${nStu} alumnos → ${rate}€/h${st.es_externo?' (+5€ externo)':''} · *${cost}€ esta clase*\n`;
+      }
     });
   });
-  m+=`\n━━━━━━━━━━━━━━━━━━━━\n💰 *TOTAL ESTIMADO: ${Math.round(total*100)/100}€*\n\n⚠️ Los horarios son firmes una vez confirmados.\n¿Confirmas asistencia? Responde *SÍ* 🙏`;
+  if(conPrecio)m+=`\n━━━━━━━━━━━━━━━━━━━━\n💰 *TOTAL ESTIMADO: ${Math.round(total*100)/100}€*\n`;
+  m+=`\n⚠️ Los horarios son firmes una vez confirmados.\n¿Confirmas asistencia? Responde *SÍ* 🙏`;
+  return m;
+}
+function renderSP(conPrecio){
+  const el=document.getElementById('sd-pv');if(!el||!ASTU)return;
+  const st=AD.alumnos.find(a=>a.id===ASTU);if(!st){el.innerHTML='';return}
+  const m=buildMsgSP(conPrecio);
+  if(!m){el.innerHTML=`<div style="color:var(--t3);font-size:12px;text-align:center;padding:12px">Sin clases asignadas aún</div>`;return}
   LAST_MSG=m;
-  el.innerHTML=`<div style="background:var(--card);border-radius:10px;padding:10px;border:1px solid var(--brd);margin-bottom:8px;max-height:280px;overflow-y:auto">
+  const label=conPrecio?'💰 Con tarifas':'📅 Solo horarios';
+  el.innerHTML=`<div style="font-size:10px;color:var(--t3);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">${label}</div>
+<div style="background:var(--card);border-radius:10px;padding:10px;border:1px solid var(--brd);margin-bottom:8px;max-height:280px;overflow-y:auto">
 <pre style="white-space:pre-wrap;font-size:11px;line-height:1.5;font-family:inherit;color:var(--t2);margin:0">${esc(m)}</pre></div>
 <button class="btn" id="btn-copy-msg" style="margin-bottom:6px">📋 COPIAR</button>
 <button class="btn btn-w" id="btn-share-msg">💬 COMPARTIR POR WHATSAPP</button>`;
@@ -1710,6 +1725,8 @@ function bind(){
   // Student home
   document.getElementById('btn-logout')?.addEventListener('click',()=>{ALUMNO=null;ALUMNO_CLASES=[];go('splash')});
   document.getElementById('btn-edit')?.addEventListener('click',()=>{editarPeticion()});
+  document.getElementById('stu-v-subj')?.addEventListener('click',()=>{STU_VIEW='subj';R()});
+  document.getElementById('stu-v-chrono')?.addEventListener('click',()=>{STU_VIEW='chrono';R()});
 
   // Fin wizard
   const acc=document.getElementById('chk-acc');const abox=document.getElementById('acc-box');
@@ -1751,8 +1768,9 @@ function bind(){
   }));
 
   // Admin send
-  document.getElementById('sd-stu')?.addEventListener('change',function(){ASTU=this.value;renderSP()});
-  if(ASTU&&V==='admin'&&AT==='enviar')setTimeout(renderSP,50);
+  document.getElementById('sd-stu')?.addEventListener('change',function(){ASTU=this.value;document.getElementById('sd-pv').innerHTML=''});
+  document.getElementById('btn-sp-nopr')?.addEventListener('click',()=>renderSP(false));
+  document.getElementById('btn-sp-conpr')?.addEventListener('click',()=>renderSP(true));
 
   // Wizard: subjects
   document.querySelectorAll('.sjc').forEach(c=>c.addEventListener('click',()=>{
