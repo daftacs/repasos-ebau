@@ -86,6 +86,13 @@ body.light .tab.on{background:#b8862e;color:#fff}
 .cal-avail-cell.blocked{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.2)}
 .cal-avail-cell.free{background:var(--card2);border:1px solid var(--brd);color:var(--t3)}
 .cal-avail-cell.has-class{border:1px solid rgba(212,168,83,.3)}
+@media print{
+  #theme-toggle,.theme-toggle,.tabs,[data-at],#adm-back,.btn-s,button:not(.btn){display:none!important}
+  body{background:#fff!important;--bg:#fff;--card:#f8f8f8;--card2:#efefef;--t:#111;--t2:#444;--t3:#777;--brd:#ccc;--gold:#a0722a;--gold2:#7a5a1e}
+  #app>div>div:first-child{display:none!important}
+  #listado-print{display:block!important;padding:0!important}
+  .c{max-width:100%!important;padding:0 8px!important}
+}
 </style>
 </head>
 <body>
@@ -525,6 +532,7 @@ function adminH(){
   let c='';
   if(AT==='alumnos')c=admAlumnos();
   else if(AT==='horarios')c=admHorarios();
+  else if(AT==='listado')c=admListado();
   else if(AT==='config')c=admConfig();
   else if(AT==='enviar')c=admEnviar();
   return`<div style="min-height:100dvh">
@@ -534,10 +542,11 @@ function adminH(){
 <span style="font-family:'Playfair Display',serif;font-size:15px;color:var(--gold2)">🔒 Admin</span>
 <div style="font-size:11px;color:var(--t3)">${AD.alumnos.length} alum.</div></div>
 <div class="c" style="padding:0"><div class="tabs">
-<button class="tab ${AT==='alumnos'?'on':''}" data-at="alumnos">👥 Alumnos</button>
-<button class="tab ${AT==='horarios'?'on':''}" data-at="horarios">📅 Horarios</button>
-<button class="tab ${AT==='config'?'on':''}" data-at="config">⚙️ Config</button>
-<button class="tab ${AT==='enviar'?'on':''}" data-at="enviar">📣 Enviar</button>
+<button class="tab ${AT==='alumnos'?'on':''}" data-at="alumnos">👥 Alum.</button>
+<button class="tab ${AT==='horarios'?'on':''}" data-at="horarios">📅 Hor.</button>
+<button class="tab ${AT==='listado'?'on':''}" data-at="listado">📋 Lista</button>
+<button class="tab ${AT==='config'?'on':''}" data-at="config">⚙️ Cfg</button>
+<button class="tab ${AT==='enviar'?'on':''}" data-at="enviar">📣 Env.</button>
 </div></div></div>
 <div class="c" style="padding-top:14px;padding-bottom:30px">${c}</div></div>`}
 
@@ -709,23 +718,14 @@ function tetrisBlock(c,sessions){
   const tInfo=(TP[c.asignatura_id]||[]).find(t=>t.name===c.tema);
   const dur=parseFloat(c.duracion_horas||tInfo?.dur||2);
   const brk=parseInt(c.descanso_min||tInfo?.brk||0);
-  const durMin=clsDurMin(dur,brk);
   const nStu=(c.inscripciones||[]).length;
-  const startMin=c.hora_inicio*60;
-  // Find which session this class belongs to
-  const sess=sessions.find(s=>startMin>=s.start&&startMin<s.end);
-  return`<div class="tetris-block" style="background:${sub?.bg||'var(--card2)'};border:1px solid ${sub?.a||'var(--brd)'}40;color:${sub?.a||'var(--t)'}">
+  const rate=nStu>=2?tarifa(nStu):0;
+  return`<div class="tetris-block" onclick="W.openClasePanel('${c.id}')" style="background:${sub?.bg||'var(--card2)'};border:1px solid ${sub?.a||'var(--brd)'}40;color:${sub?.a||'var(--t)'};cursor:pointer">
 <div style="flex:1;min-width:0">
 <div style="font-weight:700;font-size:10px">${fmtHoraMin(c.hora_inicio)}–${endTime(c.hora_inicio,dur,brk)}</div>
 <div style="font-size:10px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.tema}</div>
-<div style="font-size:9px;color:var(--t3)">${nStu} alum. · ${fmtDur(dur)}</div>
-</div>
-<div style="display:flex;gap:2px;align-items:center;flex-shrink:0">
-<button class="tetris-move" onclick="W.moverBloque('${c.id}',-15)" title="-15min">▲</button>
-<button class="tetris-move" onclick="W.moverBloque('${c.id}',15)" title="+15min">▼</button>
-<button onclick="W.moverCls('${c.id}')" style="background:none;border:1px solid var(--gold);color:var(--gold);cursor:pointer;font-size:9px;padding:2px 5px;border-radius:4px;font-family:inherit">↕</button>
-<button onclick="W.delCls('${c.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:2px">✕</button>
-</div>
+<div style="font-size:9px;color:var(--t3)">${nStu}👤${rate?' · '+rate+'€/h':''}</div>
+</div><div style="font-size:11px;flex-shrink:0;opacity:.5">▶</div>
 </div>`;
 }
 function freeSlotBlock(startH,endH){
@@ -738,59 +738,33 @@ function tetrisTimeline(clases,teacher,sessions){
   sessions.forEach(sess=>{
     const sc=clases.filter(c=>{const m=c.hora_inicio*60;return m>=sess.start&&m<sess.end}).sort((a,b)=>a.hora_inicio-b.hora_inicio);
     h+=`<div style="font-size:9px;color:var(--t3);margin:4px 0 2px;text-transform:uppercase;letter-spacing:1px">${sess.id==='morning'?'☀️ Mañana':'🌙 Tarde'} ${fmtHoraMin(sess.start/60)}–${fmtHoraMin(sess.end/60)}</div>`;
-    if(!sc.length){h+=freeSlotBlock(sess.start/60,sess.end/60);return;}
-    if(sc[0].hora_inicio*60>sess.start)h+=freeSlotBlock(sess.start/60,sc[0].hora_inicio);
     sc.forEach((c,i)=>{
       h+=tetrisBlock(c,sessions);
       const cEnd=c.hora_inicio*60+clsDurMin(c.duracion_horas,c.descanso_min)+TRANS;
-      const nextStart=i<sc.length-1?sc[i+1].hora_inicio*60:sess.end;
-      if(cEnd<nextStart)h+=freeSlotBlock(cEnd/60,nextStart/60);
+      const nextS=i<sc.length-1?sc[i+1].hora_inicio*60:null;
+      if(nextS&&cEnd<nextS)h+=freeSlotBlock(cEnd/60,nextS/60);
     });
+    for(let i=sc.length;i<3;i++)h+=`<div style="padding:4px 8px;border-radius:5px;border:1px dashed rgba(212,168,83,.12);font-size:9px;color:var(--t3);margin-bottom:2px;text-align:center;opacity:.6">— Clase ${i+1} libre —</div>`;
   });
   if(!h)h='<div style="text-align:center;padding:8px;color:var(--t3);font-size:9px">Sin sesiones este día</div>';
   return h;
 }
 function admHorarios(){
-  const allDc=AD.clases.filter(c=>c.fecha===ADATE).sort((a,b)=>a.hora_inicio-b.hora_inicio);
+  const weeks={};DT.forEach(dt=>{const d=new Date(dt+'T12:00:00');const wk=getWeekNum(d);if(!weeks[wk])weeks[wk]=[];weeks[wk].push(dt)});
+  const NC=`<div id="nc" style="display:${ANEW?'block':'none'};background:var(--card);border-radius:10px;padding:10px;margin-bottom:10px;border:1px solid rgba(212,168,83,.2)"><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px"><select class="inp" id="nc-sub" style="flex:1;min-width:80px;font-size:12px">${SJ.map(s=>`<option value="${s.id}" ${ANC.sid===s.id?'selected':''}>${s.e} ${s.n}</option>`).join('')}</select><select class="inp" id="nc-top" style="flex:2;min-width:120px;font-size:12px"><option value="">Tema...</option>${(TP[ANC.sid]||[]).map(t=>`<option value="${t.name}" ${ANC.topic===t.name?'selected':''}>${t.name} (${fmtDur(t.dur)})</option>`).join('')}</select></div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px"><select class="inp" id="nc-dt" style="flex:1;font-size:12px"><option value="">Fecha...</option>${DT.map(d=>`<option value="${d}" ${ANC.date===d?'selected':''}>${fl(d)}</option>`).join('')}</select><select class="inp" id="nc-hr" style="width:65px;font-size:12px">${HR.map(h=>`<option value="${h}" ${ANC.hour===h?'selected':''}>${fmtHoraMin(h)}</option>`).join('')}</select><select class="inp" id="nc-rm" style="flex:1;font-size:12px">${RM.map(r=>`<option value="${r.id}" ${ANC.room===r.id?'selected':''}>${r.n} (${r.c})</option>`).join('')}</select></div><button class="btn btn-s btn-g" onclick="W.addCls()">Crear clase</button></div>`;
+  const daysHTML=Object.entries(weeks).sort(([a],[b])=>Number(a)-Number(b)).map(([wk,dates])=>{
+    return`<div style="margin-bottom:18px"><div style="font-size:11px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--brd);padding:5px 0;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">📅 Semana ${fd(dates[0])} – ${fd(dates[dates.length-1])}</div>
+${dates.map(date=>{
+  const allDc=AD.clases.filter(c=>c.fecha===date).sort((a,b)=>a.hora_inicio-b.hora_inicio);
   const davidDc=allDc.filter(c=>DAVID_SUBS.includes(c.asignatura_id));
   const lupeDc=allDc.filter(c=>LUPE_SUBS.includes(c.asignatura_id));
-  const sessions=getDaySessions(ADATE);
-  return`<div class="fu">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
-<h2 style="font-family:'Playfair Display',serif;font-size:17px;color:var(--gold2)">Horarios (${AD.clases.length})</h2>
-<div style="display:flex;gap:4px">
-<button class="btn btn-s btn-o" onclick="W.autoOrg()">🤖 Auto</button>
-<button class="btn btn-s" onclick="W.togNew()">+ Nueva</button>
-</div></div>
-<div id="nc" style="display:${ANEW?'block':'none'};background:var(--card);border-radius:10px;padding:10px;margin-bottom:10px;border:1px solid rgba(212,168,83,.2)">
-<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
-<select class="inp" id="nc-sub" style="flex:1;min-width:80px;font-size:12px">${SJ.map(s=>`<option value="${s.id}" ${ANC.sid===s.id?'selected':''}>${s.e} ${s.n}</option>`).join('')}</select>
-<select class="inp" id="nc-top" style="flex:2;min-width:120px;font-size:12px"><option value="">Tema...</option>${(TP[ANC.sid]||[]).map(t=>`<option value="${t.name}" ${ANC.topic===t.name?'selected':''}>${t.name} (${fmtDur(t.dur)})</option>`).join('')}</select></div>
-<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
-<select class="inp" id="nc-dt" style="flex:1;font-size:12px"><option value="">Fecha...</option>${DT.map(d=>`<option value="${d}" ${ANC.date===d?'selected':''}>${fl(d)}</option>`).join('')}</select>
-<select class="inp" id="nc-hr" style="width:65px;font-size:12px">${HR.map(h=>`<option value="${h}" ${ANC.hour===h?'selected':''}>${fmtHoraMin(h)}</option>`).join('')}</select>
-<select class="inp" id="nc-rm" style="flex:1;font-size:12px">${RM.map(r=>`<option value="${r.id}" ${ANC.room===r.id?'selected':''}>${r.n} (${r.c})</option>`).join('')}</select></div>
-<button class="btn btn-s btn-g" onclick="W.addCls()">Crear clase</button></div>
-
-<div style="display:flex;gap:3px;overflow-x:auto;padding-bottom:4px;margin-bottom:8px">${DT.map(d=>{const n=AD.clases.filter(c=>c.fecha===d).length;return`<button onclick="W.selD('${d}')" style="padding:5px 6px;border-radius:6px;border:none;cursor:pointer;font-family:inherit;background:${d===ADATE?'var(--gold)':'var(--card)'};color:${d===ADATE?'#000':'var(--t3)'};font-size:9px;font-weight:${d===ADATE?700:400};white-space:nowrap;min-width:38px">${fd(d)}${n?`<div style="font-size:7px">${n}cl</div>`:''}</button>`;}).join('')}</div>
-
-<div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--gold2)">📅 ${fl(ADATE)}</div>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-<div style="min-width:0;overflow:hidden">
-<div style="font-size:11px;font-weight:700;color:#4a9eff;margin-bottom:6px;text-align:center;padding:4px;background:rgba(74,158,255,.08);border-radius:6px">⚡ David</div>
-${tetrisTimeline(davidDc,'David',sessions)}
-</div>
-<div style="min-width:0;overflow:hidden">
-<div style="font-size:11px;font-weight:700;color:#4ade80;margin-bottom:6px;text-align:center;padding:4px;background:rgba(74,222,128,.08);border-radius:6px">📐 Lupe</div>
-${tetrisTimeline(lupeDc,'Lupe',sessions)}
-</div>
-</div>
-<div style="margin-top:14px;border-top:1px solid var(--brd);padding-top:10px">
-<div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px">Detalle clases</div>
-${allDc.map(c=>claseCard(c)).join('')}
-${!allDc.length?'<div style="text-align:center;padding:12px;color:var(--t3);font-size:11px">Sin clases este día</div>':''}
-</div>
-</div>`}
+  const sessions=getDaySessions(date);const nCls=allDc.length;
+  return`<div style="margin-bottom:10px;background:var(--card);border-radius:10px;padding:8px;border:1px solid var(--brd)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-weight:700;font-size:13px">${fl(date)}</div><div style="font-size:10px;color:var(--t3)">${nCls?nCls+' clase'+(nCls>1?'s':''):'Sin clases'}</div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><div style="min-width:0;overflow:hidden"><div style="font-size:9px;font-weight:700;color:#4a9eff;text-align:center;padding:2px;background:rgba(74,158,255,.08);border-radius:4px;margin-bottom:3px">⚡ David</div>${tetrisTimeline(davidDc,'David',sessions)}</div><div style="min-width:0;overflow:hidden"><div style="font-size:9px;font-weight:700;color:#4ade80;text-align:center;padding:2px;background:rgba(74,222,128,.08);border-radius:4px;margin-bottom:3px">📐 Lupe</div>${tetrisTimeline(lupeDc,'Lupe',sessions)}</div></div></div>`;
+}).join('')}</div>`;
+  }).join('');
+  return`<div class="fu"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px"><h2 style="font-family:'Playfair Display',serif;font-size:17px;color:var(--gold2)">Horarios (${AD.clases.length})</h2><div style="display:flex;gap:4px"><button class="btn btn-s btn-o" onclick="W.autoOrg()">🤖 Auto</button><button class="btn btn-s" onclick="W.togNew()">+ Nueva</button></div></div>${NC}${daysHTML}</div>`;
+}
 
 function admConfig(){
   const edAct=AD.config.edicion_activa!=='false';
@@ -829,7 +803,7 @@ ${conClases.length?'':`<div style="background:rgba(245,158,11,.08);border:1px so
 function renderSP(){
   const el=document.getElementById('sd-pv');if(!el||!ASTU)return;
   const st=AD.alumnos.find(a=>a.id===ASTU);if(!st){el.innerHTML='';return}
-  const sc=AD.clases.filter(c=>(c.inscripciones||[]).some(i=>i.alumno_id===ASTU)).sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.hora_inicio-b.hora_inicio);
+  const sc=AD.clases.filter(c=>(c.inscripciones||[]).some(i=>i.alumno_id===ASTU)&&(c.inscripciones||[]).length>=2).sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.hora_inicio-b.hora_inicio);
   if(!sc.length){el.innerHTML=`<div style="color:var(--t3);font-size:12px;text-align:center;padding:12px">Sin clases asignadas aún</div>`;return}
   let total=0;
   let m=`🎓 *REPASOS EBAU - Coco Sapiens*\n\nHola ${st.nombre}, tus clases:\n`;
@@ -1356,6 +1330,87 @@ W.moverAlumno=function(cid,stuId){
   if(isNaN(idx)||idx<0||idx>=candidatas.length)return;
   W.togCS(cid,stuId).then(()=>W.togCS(candidatas[idx].id,stuId));
 };
+
+// ═══ PANEL CLASE ═══
+W.openClasePanel=function(cid){
+  document.querySelectorAll('[id^="clase-panel-"]').forEach(el=>el.remove());
+  const c=AD.clases.find(x=>x.id===cid);if(!c)return;
+  const sub=SJ.find(s=>s.id===c.asignatura_id);
+  const tInfo=(TP[c.asignatura_id]||[]).find(t=>t.name===c.tema);
+  const dur=parseFloat(c.duracion_horas||tInfo?.dur||2);
+  const brk=parseInt(c.descanso_min||tInfo?.brk||0);
+  const durMin=clsDurMin(dur,brk);
+  const insc=c.inscripciones||[];const nStu=insc.length;
+  const enrolled=insc.map(i=>i.alumno_id);
+  const conTema=AD.alumnos.filter(a=>(a.peticiones||[]).some(p=>p.asignatura_id===c.asignatura_id&&(p.temas||[]).some(t=>t.name===c.tema)));
+  const noEnrolled=conTema.filter(a=>!enrolled.includes(a.id));
+  const sessions=getDaySessions(c.fecha);
+  const timeOpts=[];sessions.forEach(sess=>{for(let t=sess.start;t+durMin<=sess.end;t+=15)timeOpts.push(t/60)});
+  const rate=nStu>=2?tarifa(nStu):0;
+  const hasExt=nStu>=2&&insc.some(i=>{const a=AD.alumnos.find(x=>x.id===i.alumno_id);return a?.es_externo});
+  const rateExt=hasExt?tarifaExt(nStu):0;
+  const div=document.createElement('div');div.id='clase-panel-'+cid;
+  div.style.cssText='position:fixed;inset:0;background:rgba(15,15,15,.92);z-index:9990;display:flex;align-items:flex-end;justify-content:center';
+  div.innerHTML=`<div style="background:var(--bg);border-radius:16px 16px 0 0;padding:16px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px"><div><div style="font-size:11px;font-weight:700;color:${sub?.a||'var(--gold)'}">${sub?.e||''} ${sub?.n||''} · ${fl(c.fecha)}</div><div style="font-size:15px;font-weight:700;color:var(--t);margin:2px 0">${c.tema}</div><div style="font-size:11px;color:var(--t3)">${fmtHoraMin(c.hora_inicio)}–${endTime(c.hora_inicio,dur,brk)} · ${fmtDur(dur)}${brk?` + ${brk}min`:''}</div>${rate?`<div style="font-size:10px;color:var(--gold);margin-top:2px">${rate}€/h × ${dur}h = ${Math.round(rate*dur*100)/100}€/alum.${hasExt?` | ext: ${rateExt}€/h = ${Math.round(rateExt*dur*100)/100}€`:''}</div>`:''}</div>
+<button onclick="document.getElementById('clase-panel-${cid}').remove()" style="background:none;border:none;color:var(--t2);cursor:pointer;font-size:20px;padding:0;flex-shrink:0">✕</button></div>
+<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">👥 Alumnos en esta clase (${nStu})</div>
+${insc.map(i=>{const a=AD.alumnos.find(x=>x.id===i.alumno_id);if(!a)return'';return`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:9px;background:var(--card);margin-bottom:4px;border:1px solid var(--brd)"><div><div style="font-size:12px;font-weight:600">${esc(a.nombre)} ${esc(a.apellidos)}${a.es_externo?` <span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(245,158,11,.15);color:var(--warn)">ext</span>`:''}</div><div style="font-size:10px;color:var(--t3)">${i.precio_hora||0}€/h · ${i.precio_total||0}€ esta clase</div></div><div style="display:flex;gap:4px"><button onclick="W.moverAluPanel('${cid}','${a.id}')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--gold);color:var(--gold);background:none;font-size:10px;cursor:pointer;font-family:inherit">↕ Mover</button><button onclick="W.quitarAluPanel('${cid}','${a.id}')" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(239,68,68,.1);color:var(--red);font-size:10px;cursor:pointer;font-family:inherit">✕ Quitar</button></div></div>`;}).join('')}
+${!nStu?'<div style="font-size:11px;color:var(--t3);text-align:center;padding:8px">Sin alumnos asignados</div>':''}
+${noEnrolled.length?`<div style="margin-top:8px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">Añadir (pidió este tema):</div><div style="display:flex;flex-wrap:wrap;gap:4px">${noEnrolled.map(a=>`<button onclick="W.addAluPanel('${cid}','${a.id}')" style="padding:3px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--t2);font-size:10px;cursor:pointer;font-family:inherit">+ ${esc(a.nombre)}</button>`).join('')}</div></div>`:''}
+<div style="margin-top:8px"><button onclick="W.togOtroAlu('${cid}')" style="width:100%;padding:5px;border-radius:6px;border:1px dashed var(--brd);background:transparent;color:var(--t3);font-size:10px;cursor:pointer;font-family:inherit">+ Añadir otro alumno (no lo pidió)...</button><div id="add-otro-${cid}" style="display:none;margin-top:6px;display:none"><select id="add-otro-sel-${cid}" class="inp" style="font-size:12px;margin-bottom:6px"><option value="">Selecciona alumno...</option>${AD.alumnos.filter(a=>!enrolled.includes(a.id)).map(a=>`<option value="${a.id}">${esc(a.nombre)} ${esc(a.apellidos)}${a.es_externo?' (ext)':''}</option>`).join('')}</select><button onclick="const s=document.getElementById('add-otro-sel-${cid}');if(s&&s.value)W.addAluPanel('${cid}',s.value)" class="btn btn-s btn-g" style="width:100%">Añadir</button></div></div></div>
+<div style="border-top:1px solid var(--brd);padding-top:10px;margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">📅 Mover clase</div>
+<div style="display:flex;gap:6px;margin-bottom:8px"><select id="cp-dt-${cid}" class="inp" onchange="W.updCPHour('${cid}')" style="flex:1;font-size:12px">${DT.map(d=>`<option value="${d}" ${d===c.fecha?'selected':''}>${fl(d)}</option>`).join('')}</select><select id="cp-hr-${cid}" class="inp" style="width:85px;font-size:12px">${timeOpts.map(h=>`<option value="${h}" ${Math.abs(h-c.hora_inicio)<0.01?'selected':''}>${fmtHoraMin(h)}</option>`).join('')}</select></div>
+<button onclick="W.moverClasePanel('${cid}')" class="btn btn-s btn-o" style="width:100%;padding:10px">Confirmar movimiento</button></div>
+<button onclick="W.delCls('${cid}');document.getElementById('clase-panel-${cid}').remove()" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.05);color:var(--red);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">🗑 Eliminar clase</button>
+</div>`;
+  document.body.appendChild(div);
+};
+W.togOtroAlu=function(cid){const el=document.getElementById('add-otro-'+cid);if(el)el.style.display=el.style.display==='none'?'block':'none'};
+W.addAluPanel=async function(cid,aid){document.getElementById('clase-panel-'+cid)?.remove();await W.togCS(cid,aid)};
+W.quitarAluPanel=async function(cid,aid){document.getElementById('clase-panel-'+cid)?.remove();await W.togCS(cid,aid)};
+W.moverAluPanel=function(cid,stuId){document.getElementById('clase-panel-'+cid)?.remove();W.moverAlumno(cid,stuId)};
+W.moverClasePanel=async function(cid){
+  const newDate=document.getElementById('cp-dt-'+cid)?.value;
+  const newHour=parseFloat(document.getElementById('cp-hr-'+cid)?.value);
+  if(!newDate||isNaN(newHour))return;
+  document.getElementById('clase-panel-'+cid)?.remove();
+  await W.confirmarMover(cid,newDate,newHour);
+};
+W.updCPHour=function(cid){
+  const c=AD.clases.find(x=>x.id===cid);if(!c)return;
+  const tInfo=(TP[c.asignatura_id]||[]).find(t=>t.name===c.tema);
+  const dur=parseFloat(c.duracion_horas||tInfo?.dur||2);
+  const brk=parseInt(c.descanso_min||tInfo?.brk||0);
+  const durMin=clsDurMin(dur,brk);
+  const newDate=document.getElementById('cp-dt-'+cid)?.value;
+  const sessions=getDaySessions(newDate||c.fecha);
+  const opts=[];sessions.forEach(sess=>{for(let t=sess.start;t+durMin<=sess.end;t+=15)opts.push(t/60)});
+  const sel=document.getElementById('cp-hr-'+cid);
+  if(sel)sel.innerHTML=opts.map(h=>`<option value="${h}">${fmtHoraMin(h)}</option>`).join('');
+};
+
+// ═══ LISTADO ═══
+function admListado(){
+  let h=`<div class="fu" id="listado-print"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h2 style="font-family:'Playfair Display',serif;font-size:17px;color:var(--gold2)">Listado por materia</h2><button onclick="window.print()" class="btn btn-s btn-o">🖨️ Imprimir PDF</button></div>`;
+  SJ.forEach(sub=>{
+    const subStudents=AD.alumnos.filter(a=>(a.peticiones||[]).some(p=>p.asignatura_id===sub.id));
+    if(!subStudents.length)return;
+    h+=`<div style="margin-bottom:20px"><div style="background:${sub.bg};border-radius:10px;padding:10px 14px;margin-bottom:8px;border-left:3px solid ${sub.a}"><div style="font-size:14px;font-weight:700;color:${sub.a}">${sub.e} ${sub.n} <span style="font-size:11px;font-weight:400;color:var(--t2)">· Prof. ${sub.t} · ${subStudents.length} alumnos</span></div></div>`;
+    (TP[sub.id]||[]).forEach(tp=>{
+      const stuConTema=AD.alumnos.filter(a=>{const p=(a.peticiones||[]).find(x=>x.asignatura_id===sub.id);return p&&(p.temas||[]).some(t=>t.name===tp.name)});
+      if(!stuConTema.length)return;
+      const clasesDelTema=AD.clases.filter(c=>c.asignatura_id===sub.id&&c.tema===tp.name&&(c.inscripciones||[]).length>=2);
+      const isDup=clasesDelTema.length>1;
+      const stuSorted=stuConTema.map(a=>{const p=(a.peticiones||[]).find(x=>x.asignatura_id===sub.id);const t=(p?.temas||[]).find(x=>x.name===tp.name);return{...a,_urg:t?.urgent||false,_pri:t?.priority||99}}).sort((a,b)=>(b._urg?1:0)-(a._urg?1:0)||a._pri-b._pri);
+      h+=`<div style="background:var(--card);border-radius:8px;padding:10px;margin-bottom:6px;border:1px solid var(--brd)"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;flex-wrap:wrap;gap:4px"><div><div style="font-size:13px;font-weight:700">${tp.name}</div><div style="font-size:10px;color:var(--t3)">⏱ ${fmtDur(tp.dur)}${tp.brk?` + ${tp.brk}min descanso`:''} · ${stuConTema.length} alumno/s</div></div><div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end">${clasesDelTema.length?`<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--grn);font-weight:600">${isDup?`✅ x${clasesDelTema.length} clases`:'✅ Asignada'}</span>`:`<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,.12);color:var(--warn);font-weight:600">⏳ Pendiente</span>`}</div></div>
+<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:${clasesDelTema.length?6:0}px">${stuSorted.map(a=>{const inCls=clasesDelTema.some(c=>(c.inscripciones||[]).some(i=>i.alumno_id===a.id));return`<span style="display:inline-flex;align-items:center;gap:2px;padding:3px 8px;border-radius:5px;font-size:10px;background:${inCls?sub.bg:'var(--card2)'};border:1px solid ${inCls?sub.a+'40':'var(--brd)'};color:${inCls?sub.a:'var(--t2)'}">${a._urg?'🔥 ':''}${esc(a.nombre)}${a.es_externo?' (ext)':''}${inCls?' ✓':''}</span>`}).join('')}</div>
+${clasesDelTema.length?`<div style="font-size:10px;color:var(--t3);border-top:1px solid var(--brd);padding-top:4px">${clasesDelTema.map(c=>`📅 ${fl(c.fecha)} ${fmtHoraMin(c.hora_inicio)} · ${(c.inscripciones||[]).length} alum.${isDup?' (dup)':''}`).join(' · ')}</div>`:''}</div>`;
+    });
+    h+=`</div>`;
+  });
+  h+=`</div>`;return h;
+}
 
 // ═══ BIND ═══
 function bind(){
