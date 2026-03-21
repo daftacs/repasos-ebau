@@ -125,6 +125,7 @@ let V='splash';
 let AUTOORG_INFO={};
 let ALUMNO=null;
 let ALUMNO_CLASES=[];
+let STU_CFG={};
 let ADMIN=false;
 let AD={alumnos:[],clases:[],config:{}};
 let LAST_MSG='';
@@ -154,7 +155,7 @@ function fmtDur(d){const h=Math.floor(d);const m=Math.round((d-h)*60);return h+'
 function fd(d){const x=new Date(d+'T12:00:00');return x.getDate()+'/'+(x.getMonth()+1)}
 function fl(d){const x=new Date(d+'T12:00:00');return DN[x.getDay()]+' '+x.getDate()+'/'+(x.getMonth()+1)}
 function isWeekend(d){const x=new Date(d+'T12:00:00').getDay();return x===0||x===6}
-function fmtHoraMin(h){const hh=Math.floor(h);const mm=Math.round((h%1)*60);return hh+':'+String(mm).padStart(2,'0')}
+function fmtHoraMin(h){const hh=Math.floor(h);const mm=Math.round((h%1)*60);return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')}
 function endTime(h,dur,brkMin){const startMin=Math.round(h*60);const endMin=startMin+Math.round(parseFloat(dur||2)*60)+parseInt(brkMin||0);return fmtHoraMin(endMin/60)}
 function fmtHora(h){return fmtHoraMin(h)}
 function normStr(s){return(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')}
@@ -477,7 +478,7 @@ ${p.fecha_examen?`<div style="font-size:11px;color:var(--t2);margin-top:2px">�
 <div style="font-size:11px;color:var(--t2);margin-top:4px">${temas.map((t,i)=>`${i+1}. ${t.name}${t.urgent?' 🔥':''}`).join(' · ')}</div>
 ${(p.horas_bloqueadas||[]).length?`<div style="font-size:10px;color:var(--red);margin-top:2px">🚫 ${p.horas_bloqueadas.length} restricciones</div>`:''}
 </div>`;}).join('')}
-${ALUMNO.puede_editar?`<button id="btn-edit" class="btn btn-o" style="margin-top:4px;padding:12px;font-size:13px">✏️ Editar mi petición</button>`:'<div style="font-size:12px;color:var(--t3);text-align:center;padding-top:8px">El plazo de edición ha cerrado</div>'}
+${(STU_CFG.edicion_activa!=='false'&&ALUMNO.puede_editar)?`<button id="btn-edit" class="btn btn-o" style="margin-top:4px;padding:12px;font-size:13px">✏️ Editar mi petición</button>`:'<div style="font-size:12px;color:var(--t3);text-align:center;padding-top:8px">El plazo de edición ha cerrado</div>'}
 </div>`:`<div style="background:var(--card);border-radius:14px;padding:20px;border:1px solid var(--brd);margin-bottom:12px;text-align:center;color:var(--t2);font-size:13px">No hay petición registrada</div>`}
 
 <div style="background:var(--card);border-radius:14px;padding:16px;border:1px solid var(--brd)">
@@ -751,7 +752,7 @@ function tetrisTimeline(clases,teacher,sessions){
 }
 function admHorarios(){
   const weeks={};DT.forEach(dt=>{const d=new Date(dt+'T12:00:00');const wk=getWeekNum(d);if(!weeks[wk])weeks[wk]=[];weeks[wk].push(dt)});
-  const NC=`<div id="nc" style="display:${ANEW?'block':'none'};background:var(--card);border-radius:10px;padding:10px;margin-bottom:10px;border:1px solid rgba(212,168,83,.2)"><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px"><select class="inp" id="nc-sub" style="flex:1;min-width:80px;font-size:12px">${SJ.map(s=>`<option value="${s.id}" ${ANC.sid===s.id?'selected':''}>${s.e} ${s.n}</option>`).join('')}</select><select class="inp" id="nc-top" style="flex:2;min-width:120px;font-size:12px"><option value="">Tema...</option>${(TP[ANC.sid]||[]).map(t=>`<option value="${t.name}" ${ANC.topic===t.name?'selected':''}>${t.name} (${fmtDur(t.dur)})</option>`).join('')}</select></div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px"><select class="inp" id="nc-dt" style="flex:1;font-size:12px"><option value="">Fecha...</option>${DT.map(d=>`<option value="${d}" ${ANC.date===d?'selected':''}>${fl(d)}</option>`).join('')}</select><select class="inp" id="nc-hr" style="width:65px;font-size:12px">${HR.map(h=>`<option value="${h}" ${ANC.hour===h?'selected':''}>${fmtHoraMin(h)}</option>`).join('')}</select><select class="inp" id="nc-rm" style="flex:1;font-size:12px">${RM.map(r=>`<option value="${r.id}" ${ANC.room===r.id?'selected':''}>${r.n} (${r.c})</option>`).join('')}</select></div><button class="btn btn-s btn-g" onclick="W.addCls()">Crear clase</button></div>`;
+  const NC=`<div id="nc" style="display:${ANEW?'block':'none'};background:var(--card);border-radius:10px;padding:10px;margin-bottom:10px;border:1px solid rgba(212,168,83,.2)"><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px"><select class="inp" id="nc-sub" style="flex:1;min-width:80px;font-size:12px">${SJ.map(s=>`<option value="${s.id}" ${ANC.sid===s.id?'selected':''}>${s.e} ${s.n}</option>`).join('')}</select><select class="inp" id="nc-top" style="flex:2;min-width:120px;font-size:12px"><option value="">Tema...</option>${(TP[ANC.sid]||[]).map(t=>`<option value="${t.name}" ${ANC.topic===t.name?'selected':''}>${t.name} (${fmtDur(t.dur)})</option>`).join('')}</select></div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px"><select class="inp" id="nc-dt" style="flex:1;font-size:12px"><option value="">Fecha...</option>${DT.map(d=>`<option value="${d}" ${ANC.date===d?'selected':''}>${fl(d)}</option>`).join('')}</select><input type="time" class="inp" id="nc-hr" value="${fmtHoraMin(ANC.hour)}" style="width:90px;font-size:12px"><select class="inp" id="nc-rm" style="flex:1;font-size:12px">${RM.map(r=>`<option value="${r.id}" ${ANC.room===r.id?'selected':''}>${r.n} (${r.c})</option>`).join('')}</select></div><button class="btn btn-s btn-g" onclick="W.addCls()">Crear clase</button></div>`;
   const daysHTML=Object.entries(weeks).sort(([a],[b])=>Number(a)-Number(b)).map(([wk,dates])=>{
     return`<div style="margin-bottom:18px"><div style="font-size:11px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--brd);padding:5px 0;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">📅 Semana ${fd(dates[0])} – ${fd(dates[dates.length-1])}</div>
 ${dates.map(date=>{
@@ -909,6 +910,24 @@ W.saveFLim=async function(){
   await db.from('config').upsert({clave:'fecha_limite',valor:v});
   AD.config.fecha_limite=v;toast('Fecha guardada',true);
 };
+W.colocarTema=async function(subId,topicName,fecha,horaInicio,stuIds){
+  const tInfo=(TP[subId]||[]).find(t=>t.name===topicName);
+  const dur=tInfo?.dur||2,brk=tInfo?.brk||0;
+  showOv(true,'Creando clase...');
+  const {data:cls,error}=await db.from('clases').insert({asignatura_id:subId,tema:topicName,duracion_horas:dur,descanso_min:brk,fecha,hora_inicio:horaInicio,aula:'fondo'}).select().single();
+  if(error){showOv(false);toast('Error: '+error.message);return}
+  cls.inscripciones=[];
+  const nStu=stuIds.length;
+  for(const sid of stuIds){
+    const a=AD.alumnos.find(x=>x.id===sid);
+    const ph=a?.es_externo?tarifaExt(nStu):tarifa(nStu);
+    const pt=Math.round(ph*dur*100)/100;
+    const {data:insc}=await db.from('inscripciones').insert({clase_id:cls.id,alumno_id:sid,precio_hora:ph,precio_total:pt}).select().single();
+    if(insc)cls.inscripciones.push(insc);
+  }
+  AD.clases.push(cls);
+  showOv(false);toast('✅ Clase creada con '+nStu+' alumnos',true);R();
+};
 W.delAlu=async function(id){
   if(!confirm('¿Eliminar este alumno y todos sus datos?'))return;
   await db.from('alumnos').delete().eq('id',id);
@@ -918,8 +937,36 @@ W.selD=function(d){ADATE=d;R()};
 W.togNew=function(){ANEW=!ANEW;R()};
 W.addCls=async function(){
   if(!ANC.topic||!ANC.date){toast('Completa asignatura, tema y fecha');return}
+  const timeStr=document.getElementById('nc-hr')?.value||fmtHoraMin(ANC.hour);
+  const [hh,mm]=timeStr.split(':').map(Number);
+  const horaInicio=hh+(mm||0)/60;
+  if(isNaN(horaInicio)){toast('Hora no válida');return}
   const tInfo=(TP[ANC.sid]||[]).find(t=>t.name===ANC.topic);
-  const {data,error}=await db.from('clases').insert({asignatura_id:ANC.sid,tema:ANC.topic,duracion_horas:tInfo?.dur||2,descanso_min:tInfo?.brk||0,fecha:ANC.date,hora_inicio:ANC.hour,aula:ANC.room}).select().single();
+  const dur=tInfo?.dur||2,brk=tInfo?.brk||0;
+  const durMin=clsDurMin(dur,brk);
+  const startMin=Math.round(horaInicio*60),endMin=startMin+durMin;
+  // Validate within a session
+  const sessions=getDaySessions(ANC.date);
+  const inSession=sessions.some(s=>startMin>=s.start&&endMin<=s.end);
+  if(!inSession){toast('La hora está fuera del horario permitido (8-14h mañana o 16-22h tarde)');return}
+  const TRANS=5;
+  const teacher=SJ.find(s=>s.id===ANC.sid)?.t;
+  const warns=[];
+  // Teacher conflict
+  AD.clases.filter(c=>c.fecha===ANC.date&&SJ.find(s=>s.id===c.asignatura_id)?.t===teacher).forEach(c=>{
+    const cS=Math.round(c.hora_inicio*60),cE=cS+clsDurMin(c.duracion_horas,c.descanso_min);
+    if(startMin<cE+TRANS&&endMin+TRANS>cS)warns.push(`Solape con clase del mismo profesor: ${c.tema} ${fmtHoraMin(c.hora_inicio)}–${endTime(c.hora_inicio,c.duracion_horas,c.descanso_min)}`);
+  });
+  // Get students who requested this topic
+  const candidatos=AD.alumnos.filter(a=>(a.peticiones||[]).some(p=>p.asignatura_id===ANC.sid&&(p.temas||[]).some(t=>t.name===ANC.topic)));
+  candidatos.forEach(a=>{
+    AD.clases.filter(c=>c.fecha===ANC.date&&(c.inscripciones||[]).some(i=>i.alumno_id===a.id)).forEach(c=>{
+      const cS=Math.round(c.hora_inicio*60),cE=cS+clsDurMin(c.duracion_horas,c.descanso_min);
+      if(startMin<cE&&endMin>cS)warns.push(`Alumno ${a.nombre} ya tiene: ${c.tema} ${fmtHoraMin(c.hora_inicio)}–${endTime(c.hora_inicio,c.duracion_horas,c.descanso_min)}`);
+    });
+  });
+  if(warns.length&&!confirm('⚠️ Conflictos detectados:\n'+warns.join('\n')+'\n\n¿Crear la clase igualmente?'))return;
+  const {data,error}=await db.from('clases').insert({asignatura_id:ANC.sid,tema:ANC.topic,duracion_horas:dur,descanso_min:brk,fecha:ANC.date,hora_inicio:horaInicio,aula:ANC.room}).select().single();
   if(error){toast('Error: '+error.message);return}
   data.inscripciones=[];
   AD.clases.push(data);ANEW=false;toast('✅ Clase creada',true);R();
@@ -973,35 +1020,41 @@ function getDaySessions(date){
 }
 // Duración total en minutos incluyendo descanso
 function clsDurMin(dur,brk){return Math.round(parseFloat(dur||2)*60)+parseInt(brk||0)}
-// Calcula hora_inicio (decimal) para siguiente clase en sesión, con granularidad 15 min
+// Calcula hora_inicio (decimal) para siguiente clase en sesión, exacto al minuto (5 min entre clases)
 function nextHoraInicio(session,clasesPuestas,newDurMin,teacher){
   const{start,end,id}=session;
   const TRANS=5;
   const teacherCls=clasesPuestas.filter(c=>SJ.find(s=>s.id===c.asignatura_id)?.t===teacher);
   // Construir lista de intervalos ocupados por el profesor (en minutos)
   const busy=teacherCls.map(c=>({
-    s:c.hora_inicio*60,
-    e:c.hora_inicio*60+clsDurMin(c.duracion_horas,c.descanso_min)
+    s:Math.round(c.hora_inicio*60),
+    e:Math.round(c.hora_inicio*60)+clsDurMin(c.duracion_horas,c.descanso_min)
   })).sort((a,b)=>a.s-b.s);
 
   if(id==='afternoon'){
-    // Forward fill: buscar el primer hueco disponible desde el inicio de sesión
+    // Forward fill: avanzar cursor exactamente 5 min tras cada clase que bloquee
     let cursor=start;
     for(const b of busy){
-      if(b.s>=cursor+TRANS+newDurMin)break;
+      if(b.s>=cursor+newDurMin)break;
       if(b.e+TRANS>cursor)cursor=b.e+TRANS;
     }
-    const h15=Math.ceil(cursor/15)*15;
-    if(h15+newDurMin>end)return null;
-    return h15/60;
+    if(cursor+newDurMin>end)return null;
+    return cursor/60;
   }
 
   if(id==='morning'){
-    // Buscar el último hueco disponible (más tardío) dentro de la sesión
-    for(let t=end-newDurMin;t>=start;t-=15){
-      const tE=t+newDurMin;
-      const overlaps=busy.some(b=>t<b.e+TRANS&&tE+TRANS>b.s);
-      if(!overlaps)return t/60;
+    // Backward fill: construir ventanas libres y colocar lo más tarde posible
+    const windows=[];
+    let prev=start;
+    for(const b of busy){
+      const wEnd=b.s-TRANS;
+      if(wEnd>prev)windows.push({s:prev,e:wEnd});
+      prev=Math.max(prev,b.e+TRANS);
+    }
+    windows.push({s:prev,e:end});
+    for(let i=windows.length-1;i>=0;i--){
+      const w=windows[i];
+      if(w.e-w.s>=newDurMin)return Math.max(w.s,w.e-newDurMin)/60;
     }
     return null;
   }
@@ -1360,7 +1413,8 @@ ${!nStu?'<div style="font-size:11px;color:var(--t3);text-align:center;padding:8p
 ${noEnrolled.length?`<div style="margin-top:8px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">Añadir (pidió este tema):</div><div style="display:flex;flex-wrap:wrap;gap:4px">${noEnrolled.map(a=>`<button onclick="W.addAluPanel('${cid}','${a.id}')" style="padding:3px 8px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--t2);font-size:10px;cursor:pointer;font-family:inherit">+ ${esc(a.nombre)}</button>`).join('')}</div></div>`:''}
 <div style="margin-top:8px"><button onclick="W.togOtroAlu('${cid}')" style="width:100%;padding:5px;border-radius:6px;border:1px dashed var(--brd);background:transparent;color:var(--t3);font-size:10px;cursor:pointer;font-family:inherit">+ Añadir otro alumno (no lo pidió)...</button><div id="add-otro-${cid}" style="display:none;margin-top:6px;display:none"><select id="add-otro-sel-${cid}" class="inp" style="font-size:12px;margin-bottom:6px"><option value="">Selecciona alumno...</option>${AD.alumnos.filter(a=>!enrolled.includes(a.id)).map(a=>`<option value="${a.id}">${esc(a.nombre)} ${esc(a.apellidos)}${a.es_externo?' (ext)':''}</option>`).join('')}</select><button onclick="const s=document.getElementById('add-otro-sel-${cid}');if(s&&s.value)W.addAluPanel('${cid}',s.value)" class="btn btn-s btn-g" style="width:100%">Añadir</button></div></div></div>
 <div style="border-top:1px solid var(--brd);padding-top:10px;margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">📅 Mover clase</div>
-<div style="display:flex;gap:6px;margin-bottom:8px"><select id="cp-dt-${cid}" class="inp" onchange="W.updCPHour('${cid}')" style="flex:1;font-size:12px">${DT.map(d=>`<option value="${d}" ${d===c.fecha?'selected':''}>${fl(d)}</option>`).join('')}</select><select id="cp-hr-${cid}" class="inp" style="width:85px;font-size:12px">${timeOpts.map(h=>`<option value="${h}" ${Math.abs(h-c.hora_inicio)<0.01?'selected':''}>${fmtHoraMin(h)}</option>`).join('')}</select></div>
+<div style="display:flex;gap:6px;margin-bottom:4px"><select id="cp-dt-${cid}" class="inp" onchange="W.checkCPOverlap('${cid}')" style="flex:1;font-size:12px">${DT.map(d=>`<option value="${d}" ${d===c.fecha?'selected':''}>${fl(d)}</option>`).join('')}</select><input type="time" id="cp-hr-${cid}" class="inp" value="${fmtHoraMin(c.hora_inicio)}" onchange="W.checkCPOverlap('${cid}')" style="width:90px;font-size:12px"></div>
+<div id="cp-warn-${cid}" style="font-size:11px;color:var(--warn);margin-bottom:6px;display:none"></div>
 <button onclick="W.moverClasePanel('${cid}')" class="btn btn-s btn-o" style="width:100%;padding:10px">Confirmar movimiento</button></div>
 <button onclick="W.delCls('${cid}');document.getElementById('clase-panel-${cid}').remove()" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.05);color:var(--red);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">🗑 Eliminar clase</button>
 </div>`;
@@ -1372,23 +1426,84 @@ W.quitarAluPanel=async function(cid,aid){document.getElementById('clase-panel-'+
 W.moverAluPanel=function(cid,stuId){document.getElementById('clase-panel-'+cid)?.remove();W.moverAlumno(cid,stuId)};
 W.moverClasePanel=async function(cid){
   const newDate=document.getElementById('cp-dt-'+cid)?.value;
-  const newHour=parseFloat(document.getElementById('cp-hr-'+cid)?.value);
-  if(!newDate||isNaN(newHour))return;
+  const timeStr=document.getElementById('cp-hr-'+cid)?.value;
+  if(!newDate||!timeStr)return;
+  const [hh,mm]=timeStr.split(':').map(Number);
+  const newHour=hh+(mm||0)/60;
+  if(isNaN(newHour))return;
   document.getElementById('clase-panel-'+cid)?.remove();
   await W.confirmarMover(cid,newDate,newHour);
 };
-W.updCPHour=function(cid){
+W.checkCPOverlap=function(cid){
   const c=AD.clases.find(x=>x.id===cid);if(!c)return;
   const tInfo=(TP[c.asignatura_id]||[]).find(t=>t.name===c.tema);
   const dur=parseFloat(c.duracion_horas||tInfo?.dur||2);
   const brk=parseInt(c.descanso_min||tInfo?.brk||0);
   const durMin=clsDurMin(dur,brk);
-  const newDate=document.getElementById('cp-dt-'+cid)?.value;
-  const sessions=getDaySessions(newDate||c.fecha);
-  const opts=[];sessions.forEach(sess=>{for(let t=sess.start;t+durMin<=sess.end;t+=15)opts.push(t/60)});
-  const sel=document.getElementById('cp-hr-'+cid);
-  if(sel)sel.innerHTML=opts.map(h=>`<option value="${h}">${fmtHoraMin(h)}</option>`).join('');
+  const newDate=document.getElementById('cp-dt-'+cid)?.value||c.fecha;
+  const timeStr=document.getElementById('cp-hr-'+cid)?.value;
+  const warnEl=document.getElementById('cp-warn-'+cid);if(!warnEl)return;
+  if(!timeStr){warnEl.style.display='none';return}
+  const [hh,mm]=timeStr.split(':').map(Number);const newHour=hh+(mm||0)/60;
+  const newStart=Math.round(newHour*60),newEnd=newStart+durMin;
+  const teacher=SJ.find(s=>s.id===c.asignatura_id)?.t;
+  const warns=[];
+  // Check teacher overlap (excluding this class)
+  const TRANS=5;
+  AD.clases.filter(x=>x.id!==cid&&x.fecha===newDate&&SJ.find(s=>s.id===x.asignatura_id)?.t===teacher).forEach(x=>{
+    const xS=Math.round(x.hora_inicio*60),xE=xS+clsDurMin(x.duracion_horas,x.descanso_min);
+    if(newStart<xE+TRANS&&newEnd+TRANS>xS)warns.push(`⚠️ Solape con clase del mismo profesor: ${x.tema} ${fmtHoraMin(x.hora_inicio)}–${endTime(x.hora_inicio,x.duracion_horas,x.descanso_min)}`);
+  });
+  // Check student overlap (excluding this class)
+  const enrolled=(c.inscripciones||[]).map(i=>i.alumno_id);
+  enrolled.forEach(sid=>{
+    AD.clases.filter(x=>x.id!==cid&&x.fecha===newDate&&(x.inscripciones||[]).some(i=>i.alumno_id===sid)).forEach(x=>{
+      const xS=Math.round(x.hora_inicio*60),xE=xS+clsDurMin(x.duracion_horas,x.descanso_min);
+      if(newStart<xE&&newEnd>xS){const a=AD.alumnos.find(al=>al.id===sid);warns.push(`⚠️ Alumno ${a?.nombre||sid} ya tiene clase: ${x.tema} ${fmtHoraMin(x.hora_inicio)}–${endTime(x.hora_inicio,x.duracion_horas,x.descanso_min)}`)}
+    });
+  });
+  if(warns.length){warnEl.innerHTML=warns.join('<br>');warnEl.style.display='block'}
+  else{warnEl.style.display='none'}
 };
+
+// ═══ LISTADO HELPERS ═══
+function stuLibreEnHorario(alumno,sub,fecha,horaInicio,durMin){
+  // Check horas_bloqueadas del alumno para esta asignatura
+  const pet=(alumno.peticiones||[]).find(p=>p.asignatura_id===sub.id);
+  const blocked=pet?.horas_bloqueadas||[];
+  const startMin=Math.round(horaInicio*60);
+  for(let hMin=startMin;hMin<startMin+durMin;hMin+=60){
+    const key=fecha+'-'+Math.floor(hMin/60);
+    if(blocked.includes(key))return false;
+  }
+  // Check no inscripción solapada
+  if(stuSolape(alumno.id,fecha,horaInicio,durMin,AD.clases))return false;
+  return true;
+}
+function findAvailableSlots(sub,topicName,maxSlots){
+  maxSlots=maxSlots||3;
+  const tInfo=(TP[sub.id]||[]).find(t=>t.name===topicName);
+  const dur=tInfo?.dur||2,brk=tInfo?.brk||0;
+  const durMin=clsDurMin(dur,brk);
+  const stuConTema=AD.alumnos.filter(a=>(a.peticiones||[]).some(p=>p.asignatura_id===sub.id&&(p.temas||[]).some(t=>t.name===topicName)));
+  if(stuConTema.length<2)return{reason:'Solo '+stuConTema.length+' alumno'+(stuConTema.length===1?'':'s')+' lo pidió (mínimo 2 para abrir grupo)',slots:[]};
+  const sinAsignar=stuConTema.filter(a=>{const clasesTema=AD.clases.filter(c=>c.asignatura_id===sub.id&&c.tema===topicName&&(c.inscripciones||[]).length>=2);return!clasesTema.some(c=>(c.inscripciones||[]).some(i=>i.alumno_id===a.id))});
+  if(!sinAsignar.length)return{reason:'Todos asignados',slots:[]};
+  const slots=[];
+  for(let di=0;di<DT.length&&slots.length<maxSlots;di++){
+    const fecha=DT[di];
+    const sessions=getDaySessions(fecha);
+    for(let si=0;si<sessions.length&&slots.length<maxSlots;si++){
+      const sess=sessions[si];
+      const horaInicio=nextHoraInicio(sess,AD.clases,durMin,sub.t);
+      if(horaInicio===null)continue;
+      const libres=sinAsignar.filter(a=>stuLibreEnHorario(a,sub,fecha,horaInicio,durMin));
+      if(libres.length>=2)slots.push({fecha,horaInicio,nLibres:libres.length,stuIds:libres.map(a=>a.id)});
+    }
+  }
+  if(!slots.length)return{reason:'Sin hueco donde haya ≥2 alumnos disponibles',slots:[]};
+  return{reason:null,slots};
+}
 
 // ═══ LISTADO ═══
 function admListado(){
@@ -1403,9 +1518,19 @@ function admListado(){
       const clasesDelTema=AD.clases.filter(c=>c.asignatura_id===sub.id&&c.tema===tp.name&&(c.inscripciones||[]).length>=2);
       const isDup=clasesDelTema.length>1;
       const stuSorted=stuConTema.map(a=>{const p=(a.peticiones||[]).find(x=>x.asignatura_id===sub.id);const t=(p?.temas||[]).find(x=>x.name===tp.name);return{...a,_urg:t?.urgent||false,_pri:t?.priority||99}}).sort((a,b)=>(b._urg?1:0)-(a._urg?1:0)||a._pri-b._pri);
+      let pendInfoH='';
+      if(!clasesDelTema.length){
+        const info=findAvailableSlots(sub,tp.name,3);
+        if(info.reason){
+          pendInfoH=`<div style="font-size:11px;color:var(--t3);margin-top:6px;padding:6px 8px;background:var(--card2);border-radius:6px;border-left:3px solid var(--brd)">ℹ️ ${esc(info.reason)}</div>`;
+        } else {
+          const btns=info.slots.map(s=>{const stuIdsJ=JSON.stringify(s.stuIds).replace(/"/g,"'");return`<button onclick="W.colocarTema('${sub.id}','${tp.name.replace(/'/g,"\\'")}','${s.fecha}',${s.horaInicio},${stuIdsJ})" style="padding:4px 8px;border-radius:6px;border:1px solid ${sub.a}40;background:${sub.bg};color:${sub.a};font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">📅 ${fl(s.fecha)} ${fmtHoraMin(s.horaInicio)} (${s.nLibres} alum.) → Colocar aquí</button>`}).join('');
+          pendInfoH=`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${btns}</div>`;
+        }
+      }
       h+=`<div style="background:var(--card);border-radius:8px;padding:10px;margin-bottom:6px;border:1px solid var(--brd)"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;flex-wrap:wrap;gap:4px"><div><div style="font-size:13px;font-weight:700">${tp.name}</div><div style="font-size:10px;color:var(--t3)">⏱ ${fmtDur(tp.dur)}${tp.brk?` + ${tp.brk}min descanso`:''} · ${stuConTema.length} alumno/s</div></div><div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end">${clasesDelTema.length?`<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--grn);font-weight:600">${isDup?`✅ x${clasesDelTema.length} clases`:'✅ Asignada'}</span>`:`<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,.12);color:var(--warn);font-weight:600">⏳ Pendiente</span>`}</div></div>
 <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:${clasesDelTema.length?6:0}px">${stuSorted.map(a=>{const inCls=clasesDelTema.some(c=>(c.inscripciones||[]).some(i=>i.alumno_id===a.id));return`<span style="display:inline-flex;align-items:center;gap:2px;padding:3px 8px;border-radius:5px;font-size:10px;background:${inCls?sub.bg:'var(--card2)'};border:1px solid ${inCls?sub.a+'40':'var(--brd)'};color:${inCls?sub.a:'var(--t2)'}">${a._urg?'🔥 ':''}${esc(a.nombre)}${a.es_externo?' (ext)':''}${inCls?' ✓':''}</span>`}).join('')}</div>
-${clasesDelTema.length?`<div style="font-size:10px;color:var(--t3);border-top:1px solid var(--brd);padding-top:4px">${clasesDelTema.map(c=>`📅 ${fl(c.fecha)} ${fmtHoraMin(c.hora_inicio)} · ${(c.inscripciones||[]).length} alum.${isDup?' (dup)':''}`).join(' · ')}</div>`:''}</div>`;
+${clasesDelTema.length?`<div style="font-size:10px;color:var(--t3);border-top:1px solid var(--brd);padding-top:4px">${clasesDelTema.map(c=>`📅 ${fl(c.fecha)} ${fmtHoraMin(c.hora_inicio)} · ${(c.inscripciones||[]).length} alum.${isDup?' (dup)':''}`).join(' · ')}</div>`:''}${pendInfoH}</div>`;
     });
     h+=`</div>`;
   });
@@ -1531,7 +1656,7 @@ function bind(){
   document.getElementById('nc-sub')?.addEventListener('change',function(){ANC.sid=this.value;ANC.topic='';R()});
   document.getElementById('nc-top')?.addEventListener('change',function(){ANC.topic=this.value});
   document.getElementById('nc-dt')?.addEventListener('change',function(){ANC.date=this.value});
-  document.getElementById('nc-hr')?.addEventListener('change',function(){ANC.hour=parseInt(this.value)});
+  document.getElementById('nc-hr')?.addEventListener('change',function(){const[hh,mm]=this.value.split(':').map(Number);ANC.hour=hh+(mm||0)/60});
   document.getElementById('nc-rm')?.addEventListener('change',function(){ANC.room=this.value});
 
   // Admin send
@@ -1644,6 +1769,10 @@ async function doLogin(){
     return;
   }
   ALUMNO=data;
+  // Load config (edicion_activa)
+  const {data:cfgRows}=await db.from('config').select('clave,valor');
+  STU_CFG={};
+  (cfgRows||[]).forEach(r=>{STU_CFG[r.clave]=r.valor});
   // Load classes for this student
   const {data:clases}=await db.from('clases').select('*, inscripciones(*)').in('id',
     (await db.from('inscripciones').select('clase_id').eq('alumno_id',ALUMNO.id)).data?.map(i=>i.clase_id)||[]
