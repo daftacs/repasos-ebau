@@ -910,6 +910,67 @@ W.saveFLim=async function(){
   await db.from('config').upsert({clave:'fecha_limite',valor:v});
   AD.config.fecha_limite=v;toast('Fecha guardada',true);
 };
+W.openColocarPanel=function(subId,topicName,defaultFecha,defaultHora){
+  document.getElementById('colocar-panel')?.remove();
+  const sub=SJ.find(s=>s.id===subId);
+  const tInfo=(TP[subId]||[]).find(t=>t.name===topicName);
+  const dur=tInfo?.dur||2,brk=tInfo?.brk||0,durMin=clsDurMin(dur,brk);
+  const stuConTema=AD.alumnos.filter(a=>(a.peticiones||[]).some(p=>p.asignatura_id===subId&&(p.temas||[]).some(t=>t.name===topicName)));
+  const div=document.createElement('div');div.id='colocar-panel';
+  div.style.cssText='position:fixed;inset:0;background:rgba(15,15,15,.92);z-index:9990;display:flex;align-items:flex-end;justify-content:center';
+  const initFecha=defaultFecha||DT[0];
+  const initHora=defaultHora!=null?fmtHoraMin(defaultHora):'16:00';
+  function renderContent(){
+    const fecha=div._fecha||initFecha;
+    const timeStr=div._time||initHora;
+    const [hh,mm]=(timeStr||'16:00').split(':').map(Number);
+    const horaInicio=hh+(mm||0)/60;
+    const startMin=Math.round(horaInicio*60),endMin=startMin+durMin;
+    // Teacher conflict check (5-min gap, integer arithmetic)
+    const teacher=sub?.t;
+    const TRANS=5;
+    const teacherConflicts=AD.clases.filter(c=>c.fecha===fecha&&SJ.find(s=>s.id===c.asignatura_id)?.t===teacher).filter(c=>{
+      const cS=Math.round(c.hora_inicio*60),cE=cS+clsDurMin(c.duracion_horas,c.descanso_min);
+      return startMin<cE+TRANS&&endMin+TRANS>cS;
+    });
+    // Student availability
+    const stuLibres=stuConTema.filter(a=>stuLibreEnHorario(a,sub,fecha,horaInicio,durMin));
+    const stuOcupados=stuConTema.filter(a=>!stuLibreEnHorario(a,sub,fecha,horaInicio,durMin));
+    // Session validation
+    const sessions=getDaySessions(fecha);
+    const inSess=sessions.some(s=>startMin>=s.start&&endMin<=s.end);
+    // Warnings
+    let warnH='';
+    if(!inSess)warnH+=`<div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--red);margin-bottom:6px">⛔ Fuera del horario permitido (mañana 8-14h, tarde 16-22h)</div>`;
+    if(teacherConflicts.length)warnH+=`<div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--warn);margin-bottom:6px">⚠️ Solape con ${esc(teacher)}: ${teacherConflicts.map(c=>`${c.tema} ${fmtHoraMin(c.hora_inicio)}–${endTime(c.hora_inicio,c.duracion_horas,c.descanso_min)}`).join(', ')}</div>`;
+    if(stuOcupados.length)warnH+=`<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--warn);margin-bottom:6px">⚠️ Ocupados: ${stuOcupados.map(a=>esc(a.nombre)).join(', ')}</div>`;
+    const canCreate=inSess&&stuLibres.length>=2;
+    div.querySelector('.cp-inner').innerHTML=`
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+<div><div style="font-size:13px;font-weight:700;color:${sub?.a||'var(--gold)'}">${sub?.e||''} ${sub?.n||''}</div><div style="font-size:15px;font-weight:700">${esc(topicName)}</div><div style="font-size:11px;color:var(--t3)">⏱ ${fmtDur(dur)}${brk?` + ${brk}min`:''}  · ${stuConTema.length} alumnos lo pidieron</div></div>
+<button id="cp-close" style="background:none;border:none;color:var(--t2);cursor:pointer;font-size:20px;padding:0">✕</button></div>
+<div style="display:flex;gap:6px;margin-bottom:6px">
+<select id="cp-fecha" class="inp" style="flex:1;font-size:12px">${DT.map(d=>`<option value="${d}" ${d===fecha?'selected':''}>${fl(d)}</option>`).join('')}</select>
+<input type="time" id="cp-time" class="inp" value="${timeStr}" style="width:90px;font-size:12px">
+</div>
+${warnH}
+<div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:4px">Alumnos libres en ese horario (${stuLibres.length}):</div>
+<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">${stuConTema.map(a=>{const libre=stuLibres.includes(a);return`<span style="padding:3px 8px;border-radius:5px;font-size:10px;background:${libre?(sub?.bg||'var(--card2)'):'var(--card2)'};border:1px solid ${libre?(sub?.a||'var(--brd)')+'40':'var(--brd)'};color:${libre?(sub?.a||'var(--t)'):'var(--t3)'}">${esc(a.nombre)}${libre?' ✓':' ✗'}</span>`}).join('')}</div>
+<button id="cp-crear" class="btn btn-g" style="width:100%;padding:12px;opacity:${canCreate?1:0.4}" ${canCreate?'':''}>Crear clase con ${stuLibres.length} alumnos ${!canCreate&&stuLibres.length<2?'(faltan alumnos)':!canCreate?'(horario inválido)':''}</button>`;
+    div.querySelector('#cp-close')?.addEventListener('click',()=>div.remove());
+    div.querySelector('#cp-fecha')?.addEventListener('change',function(){div._fecha=this.value;renderContent()});
+    div.querySelector('#cp-time')?.addEventListener('change',function(){div._time=this.value;renderContent()});
+    div.querySelector('#cp-crear')?.addEventListener('click',async function(){
+      if(!canCreate)return;
+      div.remove();
+      await W.colocarTema(subId,topicName,fecha,horaInicio,stuLibres.map(a=>a.id));
+    });
+  }
+  div._fecha=initFecha;div._time=initHora;
+  div.innerHTML=`<div class="cp-inner" style="background:var(--bg);border-radius:16px 16px 0 0;padding:16px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto"></div>`;
+  document.body.appendChild(div);
+  renderContent();
+};
 W.colocarTema=async function(subId,topicName,fecha,horaInicio,stuIds){
   const tInfo=(TP[subId]||[]).find(t=>t.name===topicName);
   const dur=tInfo?.dur||2,brk=tInfo?.brk||0;
@@ -1187,12 +1248,12 @@ W._doAutoOrg=async function(){
         durMin,sub.t);
       if(horaInicio===null)continue;
 
-      // Verificar profesor no tiene solapamiento con otra clase (exhaustivo)
-      {const newS=horaInicio*60,newE=newS+durMin;
+      // Verificar profesor no tiene solapamiento con otra clase (exhaustivo, enteros para evitar float)
+      {const newS=Math.round(horaInicio*60),newE=newS+durMin;
       const teacherConflict=res.some(c=>{
         if(c.fecha!==date)return false;
         if(SJ.find(s=>s.id===c.asignatura_id)?.t!==sub.t)return false;
-        const cS=c.hora_inicio*60,cE=cS+clsDurMin(c.duracion_horas,c.descanso_min);
+        const cS=Math.round(c.hora_inicio*60),cE=cS+clsDurMin(c.duracion_horas,c.descanso_min);
         return newS<cE+5&&newE+5>cS;
       });
       if(teacherConflict)continue;}
@@ -1495,7 +1556,8 @@ function findAvailableSlots(sub,topicName,maxSlots){
     const sessions=getDaySessions(fecha);
     for(let si=0;si<sessions.length&&slots.length<maxSlots;si++){
       const sess=sessions[si];
-      const horaInicio=nextHoraInicio(sess,AD.clases,durMin,sub.t);
+      const clasesFecha=AD.clases.filter(c=>c.fecha===fecha&&(()=>{const h=Math.round(c.hora_inicio*60);return h>=sess.start&&h<sess.end})());
+      const horaInicio=nextHoraInicio(sess,clasesFecha,durMin,sub.t);
       if(horaInicio===null)continue;
       const libres=sinAsignar.filter(a=>stuLibreEnHorario(a,sub,fecha,horaInicio,durMin));
       if(libres.length>=2)slots.push({fecha,horaInicio,nLibres:libres.length,stuIds:libres.map(a=>a.id)});
@@ -1521,12 +1583,16 @@ function admListado(){
       let pendInfoH='';
       if(!clasesDelTema.length){
         const info=findAvailableSlots(sub,tp.name,3);
+        const subIdEnc=sub.id;
+        const topEnc=encodeURIComponent(tp.name);
         if(info.reason){
           pendInfoH=`<div style="font-size:11px;color:var(--t3);margin-top:6px;padding:6px 8px;background:var(--card2);border-radius:6px;border-left:3px solid var(--brd)">ℹ️ ${esc(info.reason)}</div>`;
         } else {
-          const btns=info.slots.map(s=>{const stuIdsJ=JSON.stringify(s.stuIds).replace(/"/g,"'");return`<button onclick="W.colocarTema('${sub.id}','${tp.name.replace(/'/g,"\\'")}','${s.fecha}',${s.horaInicio},${stuIdsJ})" style="padding:4px 8px;border-radius:6px;border:1px solid ${sub.a}40;background:${sub.bg};color:${sub.a};font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">📅 ${fl(s.fecha)} ${fmtHoraMin(s.horaInicio)} (${s.nLibres} alum.) → Colocar aquí</button>`}).join('');
-          pendInfoH=`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${btns}</div>`;
+          const slotRows=info.slots.map(s=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--brd)"><span style="font-size:11px;color:var(--t2)">📅 ${fl(s.fecha)} ${fmtHoraMin(s.horaInicio)} · ${s.nLibres} alum. libres</span><button data-sub="${subIdEnc}" data-top="${topEnc}" data-fecha="${s.fecha}" data-hora="${s.horaInicio}" class="col-slot-btn" style="padding:3px 9px;border-radius:6px;border:1px solid ${sub.a}40;background:${sub.bg};color:${sub.a};font-size:10px;cursor:pointer;font-family:inherit">Colocar</button></div>`).join('');
+          pendInfoH=`<div style="margin-top:6px;border:1px solid var(--brd);border-radius:7px;padding:6px 10px">${slotRows}<div style="margin-top:6px;padding-top:6px"><button data-sub="${subIdEnc}" data-top="${topEnc}" class="col-manual-btn" style="width:100%;padding:6px;border-radius:6px;border:1px dashed ${sub.a}40;background:transparent;color:${sub.a};font-size:10px;cursor:pointer;font-family:inherit">📝 Elegir día y hora manualmente...</button></div></div>`;
         }
+        if(!info.reason&&!info.slots.length)pendInfoH+=`<div style="margin-top:6px"><button data-sub="${subIdEnc}" data-top="${topEnc}" class="col-manual-btn" style="width:100%;padding:6px;border-radius:6px;border:1px dashed var(--brd);background:transparent;color:var(--t3);font-size:10px;cursor:pointer;font-family:inherit">📝 Colocar manualmente...</button></div>`;
+        if(info.reason)pendInfoH+=`<div style="margin-top:4px"><button data-sub="${subIdEnc}" data-top="${topEnc}" class="col-manual-btn" style="width:100%;padding:5px;border-radius:6px;border:1px dashed var(--brd);background:transparent;color:var(--t3);font-size:10px;cursor:pointer;font-family:inherit">📝 Colocar manualmente...</button></div>`;
       }
       h+=`<div style="background:var(--card);border-radius:8px;padding:10px;margin-bottom:6px;border:1px solid var(--brd)"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;flex-wrap:wrap;gap:4px"><div><div style="font-size:13px;font-weight:700">${tp.name}</div><div style="font-size:10px;color:var(--t3)">⏱ ${fmtDur(tp.dur)}${tp.brk?` + ${tp.brk}min descanso`:''} · ${stuConTema.length} alumno/s</div></div><div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end">${clasesDelTema.length?`<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--grn);font-weight:600">${isDup?`✅ x${clasesDelTema.length} clases`:'✅ Asignada'}</span>`:`<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,.12);color:var(--warn);font-weight:600">⏳ Pendiente</span>`}</div></div>
 <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:${clasesDelTema.length?6:0}px">${stuSorted.map(a=>{const inCls=clasesDelTema.some(c=>(c.inscripciones||[]).some(i=>i.alumno_id===a.id));return`<span style="display:inline-flex;align-items:center;gap:2px;padding:3px 8px;border-radius:5px;font-size:10px;background:${inCls?sub.bg:'var(--card2)'};border:1px solid ${inCls?sub.a+'40':'var(--brd)'};color:${inCls?sub.a:'var(--t2)'}">${a._urg?'🔥 ':''}${esc(a.nombre)}${a.es_externo?' (ext)':''}${inCls?' ✓':''}</span>`}).join('')}</div>
@@ -1658,6 +1724,17 @@ function bind(){
   document.getElementById('nc-dt')?.addEventListener('change',function(){ANC.date=this.value});
   document.getElementById('nc-hr')?.addEventListener('change',function(){const[hh,mm]=this.value.split(':').map(Number);ANC.hour=hh+(mm||0)/60});
   document.getElementById('nc-rm')?.addEventListener('change',function(){ANC.room=this.value});
+
+  // Listado: colocar slots y manual
+  document.querySelectorAll('.col-slot-btn').forEach(btn=>btn.addEventListener('click',function(){
+    const subId=this.dataset.sub;const topicName=decodeURIComponent(this.dataset.top);
+    const fecha=this.dataset.fecha;const hora=parseFloat(this.dataset.hora);
+    W.openColocarPanel(subId,topicName,fecha,hora);
+  }));
+  document.querySelectorAll('.col-manual-btn').forEach(btn=>btn.addEventListener('click',function(){
+    const subId=this.dataset.sub;const topicName=decodeURIComponent(this.dataset.top);
+    W.openColocarPanel(subId,topicName,null,null);
+  }));
 
   // Admin send
   document.getElementById('sd-stu')?.addEventListener('change',function(){ASTU=this.value;renderSP()});
