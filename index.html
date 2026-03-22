@@ -99,6 +99,35 @@ body.light .tab.on{background:#b8862e;color:#fff}
 .top3-option{padding:8px 10px;border-radius:8px;background:var(--card2);border:1px solid var(--brd);margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .top3-option .t3-info{flex:1;min-width:0}
 .top3-option .t3-btn{padding:5px 10px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;white-space:nowrap}
+.ayuda-btn {
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;color:var(--t3);cursor:pointer;
+  padding:3px 8px;border-radius:6px;border:1px solid var(--brd);
+  background:transparent;margin-bottom:10px;
+  transition:color .15s;
+}
+.ayuda-btn:hover,.ayuda-btn:active{color:var(--gold2);border-color:var(--gold)}
+.ayuda-texto {
+  background:rgba(212,168,83,.06);border:1px solid rgba(212,168,83,.15);
+  border-radius:8px;padding:10px 12px;font-size:12px;color:var(--t2);
+  line-height:1.5;margin-bottom:12px;
+}
+.tour-overlay{position:fixed;inset:0;z-index:10000;pointer-events:auto}
+.tour-highlight{position:absolute;z-index:10001;box-shadow:0 0 0 9999px rgba(0,0,0,.78);border-radius:12px;pointer-events:none;transition:all .3s}
+.tour-bubble{position:absolute;z-index:10002;background:var(--card);border:1px solid var(--brd);border-radius:14px;padding:18px 16px;max-width:320px;width:calc(100vw - 40px);box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.tour-bubble.center{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%)}
+.tour-bubble h3{font-size:15px;font-weight:700;color:var(--gold2);margin-bottom:6px}
+.tour-bubble p{font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:14px;white-space:pre-line}
+.tour-dots{display:flex;gap:6px;justify-content:center;margin-bottom:12px}
+.tour-dots span{width:7px;height:7px;border-radius:50%;background:var(--brd);transition:background .2s}
+.tour-dots span.on{background:var(--gold)}
+.tour-btns{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tour-btns button{padding:10px 18px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600}
+.tour-skip{background:transparent;color:var(--t2)}
+.tour-next{background:linear-gradient(135deg,var(--gold),#c4943d);color:#000}
+.tour-arrow{position:absolute;width:14px;height:14px;background:var(--card);border:1px solid var(--brd);transform:rotate(45deg)}
+.tour-arrow.top{top:-8px;left:50%;margin-left:-7px;border-right:none;border-bottom:none}
+.tour-arrow.bottom{bottom:-8px;left:50%;margin-left:-7px;border-left:none;border-top:none}
 @media print{
   #theme-toggle,.theme-toggle,.tabs,[data-at],#adm-back,.btn-s,button:not(.btn){display:none!important}
   body{background:#fff!important;--bg:#fff;--card:#f8f8f8;--card2:#efefef;--t:#111;--t2:#444;--t3:#777;--brd:#ccc;--gold:#a0722a;--gold2:#7a5a1e}
@@ -250,7 +279,10 @@ function regConfigH(){return`
 </div>
 
 <p style="font-size:13px;color:var(--t2);margin-bottom:8px;font-weight:600">¿Cómo prefieres organizar tus clases?</p>
-<div class="radio-row" style="margin-bottom:20px">
+<div class="ayuda-btn" data-ayuda="preferencia">ℹ️ ¿Qué pongo aquí?</div>
+<div class="ayuda-texto" id="ayuda-preferencia" style="display:none">Repartidas: el sistema intentará no ponerte más de 2 clases en el mismo día.
+Concentradas: puedes tener hasta 3 clases en el mismo día para venir menos veces.</div>
+<div id="tour-preferencia" class="radio-row" style="margin-bottom:20px">
 <label class="radio-card ${!REG.prefConcentrar?'sel':''}"><input type="radio" name="pref" value="repartidas" ${!REG.prefConcentrar?'checked':''}><div><div style="font-weight:600">Repartidas</div><div style="font-size:12px;color:var(--t2)">En días distintos cuando sea posible</div></div></label>
 <label class="radio-card ${REG.prefConcentrar?'sel':''}"><input type="radio" name="pref" value="concentradas" ${REG.prefConcentrar?'checked':''}><div><div style="font-weight:600">Concentradas</div><div style="font-size:12px;color:var(--t2)">Varios temas el mismo día</div></div></label>
 </div>
@@ -291,8 +323,10 @@ function wS0(ts){return`
 <div class="fu" style="text-align:center;padding-top:16px">
 <div style="font-size:40px;margin-bottom:10px">📚</div>
 <h2 style="font-family:'Playfair Display',serif;font-size:22px;color:var(--gold2);margin-bottom:6px">¿Qué asignaturas?</h2>
-<p style="color:var(--t2);font-size:13px;margin-bottom:20px">Selecciona las que quieras repasar</p>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${SJ.map(s=>{const on=S.subs.includes(s.id);return`
+<p style="color:var(--t2);font-size:13px;margin-bottom:10px">Selecciona las que quieras repasar</p>
+<div class="ayuda-btn" data-ayuda="asignaturas">ℹ️ ¿Qué pongo aquí?</div>
+<div class="ayuda-texto" id="ayuda-asignaturas" style="display:none">Selecciona todas las materias en las que quieras repasar. Puedes elegir varias. Para cada una te pediremos los temas específicos que necesitas.</div>
+<div id="tour-asignaturas" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${SJ.map(s=>{const on=S.subs.includes(s.id);return`
 <button class="sjc" data-id="${s.id}" style="padding:20px 12px;border-radius:16px;border:2px solid ${on?s.a:'var(--brd)'};background:${on?s.bg:'var(--card)'};cursor:pointer;font-family:inherit;text-align:center">
 <div style="font-size:32px;margin-bottom:6px">${s.e}</div>
 <div style="font-size:14px;font-weight:600;color:${on?s.a:'var(--t)'}">${s.n}</div>
@@ -323,8 +357,10 @@ function wSub(ts){
 </div>
 </div>
 
-<div style="margin-bottom:14px">
+<div id="tour-fecha" style="margin-bottom:14px">
 <label style="font-size:12px;color:var(--t2);display:block;margin-bottom:5px">Fecha examen final <span style="color:var(--red)">*</span></label>
+<div class="ayuda-btn" data-ayuda="fecha">ℹ️ ¿Qué pongo aquí?</div>
+<div class="ayuda-texto" id="ayuda-fecha" style="display:none">Si no vas a la EBAU con esta asignatura, esta fecha es el límite para tus clases de ese tema. Si sí vas a la EBAU, es solo orientativa para priorizarte.</div>
 <input type="date" class="inp" id="i-final" value="${d.finalDate}">
 <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--t3);cursor:pointer">
 <input type="checkbox" id="chk-est" ${d.estimated?'checked':''} style="accent-color:var(--gold);width:18px;height:18px"> No sé la fecha exacta
@@ -352,17 +388,19 @@ ${(function(){
 // ═══ TOPICS ═══
 function topH(sid,sub,d){
   const all=TP[sid]||[];
-  let h=`<p style="font-size:12px;color:var(--t3);margin-bottom:12px">Toca para añadir. Ordénalos por prioridad.</p>`;
+  let h=`<p style="font-size:12px;color:var(--t3);margin-bottom:8px">Toca para añadir. Ordénalos por prioridad.</p>
+<div class="ayuda-btn" data-ayuda="temas">ℹ️ ¿Qué pongo aquí?</div>
+<div class="ayuda-texto" id="ayuda-temas" style="display:none">Ordena los temas de más urgente a menos. Los que estén más arriba los intentará colocar antes el sistema. Usa las flechas ▲▼ para reordenar.</div>`;
   if(d.topics.length){
     h+=`<div style="font-size:10px;color:var(--t2);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Tu orden de prioridad</div>`;
     d.topics.forEach((t,i)=>{
       const info=all.find(x=>x.name===t.name);
       const durText=info?fmtDur(info.dur)+(info.brk?` + ${info.brk}min descanso`:''):'';
-      h+=`<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:${t.urgent?'rgba(239,68,68,.07)':sub.bg};margin-bottom:5px;border:1px solid ${t.urgent?'rgba(239,68,68,.2)':sub.a+'20'}">
+      h+=`<div ${i===0?'id="tour-temas" ':''}style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:${t.urgent?'rgba(239,68,68,.07)':sub.bg};margin-bottom:5px;border:1px solid ${t.urgent?'rgba(239,68,68,.2)':sub.a+'20'}">
 <span style="font-size:18px;font-weight:800;color:${sub.a};width:26px;text-align:center;flex-shrink:0">${i+1}</span>
 <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600">${t.name}</div>
 ${durText?`<div style="font-size:11px;color:var(--t3);margin-top:1px">⏱ ${durText}</div>`:''}</div>
-<div style="display:flex;gap:3px;flex-direction:column"><button class="urg-card${t.urgent===true?' sel-urg':''}" onclick="W.setUrg('${sid}','${esc2(t.name)}',true)">🔥 Urgente</button><button class="urg-card${t.urgent===false?' sel-nourg':''}" onclick="W.setUrg('${sid}','${esc2(t.name)}',false)">📅 Sin prisa</button></div>
+<div ${i===0?'id="tour-urgente" ':''}style="display:flex;gap:3px;flex-direction:column"><button class="urg-card${t.urgent===true?' sel-urg':''}" onclick="W.setUrg('${sid}','${esc2(t.name)}',true)">🔥 Urgente</button><button class="urg-card${t.urgent===false?' sel-nourg':''}" onclick="W.setUrg('${sid}','${esc2(t.name)}',false)">📅 Sin prisa</button></div>
 <div style="display:flex;flex-direction:column;gap:3px">
 <button class="arrow-btn" onclick="W.movT('${sid}',${i},-1)" ${i===0?'disabled':''}>▲</button>
 <button class="arrow-btn" onclick="W.movT('${sid}',${i},1)" ${i===d.topics.length-1?'disabled':''}>▼</button>
@@ -398,7 +436,9 @@ function getWarnings(sid){
 }
 function calH(sid,sub,d){
   const warns=getWarnings(sid);
-  let h=`<div style="background:rgba(212,168,83,.06);border:1px solid rgba(212,168,83,.12);border-radius:12px;padding:12px;margin-bottom:12px"><p style="font-size:13px;color:var(--gold2);line-height:1.5;margin:0"><strong>Asumimos que puedes venir siempre.</strong> Toca un día y marca solo las horas que <strong>NO puedes</strong>.</p></div>`;
+  let h=`<div id="tour-calendario"><div style="background:rgba(212,168,83,.06);border:1px solid rgba(212,168,83,.12);border-radius:12px;padding:12px;margin-bottom:8px"><p style="font-size:13px;color:var(--gold2);line-height:1.5;margin:0"><strong>Asumimos que puedes venir siempre.</strong> Toca un día y marca solo las horas que <strong>NO puedes</strong>.</p></div>
+<div class="ayuda-btn" data-ayuda="calendario">ℹ️ ¿Qué pongo aquí?</div>
+<div class="ayuda-texto" id="ayuda-calendario" style="display:none">Toca las horas en las que NO puedes venir. Las horas que dejes sin marcar se entiende que estás disponible. Cuantas menos horas bloquees, más fácil será encontrarte un buen hueco.</div></div>`;
   warns.forEach(w=>{
     if(w.type==='weekend')h+=`<div class="warn-box yellow"><div><div style="font-size:13px;font-weight:700;color:var(--warn)">⚠️ ${fl(w.date)}: ${w.from}h-${w.to}h bloqueadas</div><div style="font-size:12px;color:var(--t2);margin-top:4px">¿Puedes explicarnos por qué?</div><input class="inp" placeholder="Explica brevemente..." oninput="W.setWNote('${sid}',this.value)" value="${esc(d.blockNote||'')}" style="margin-top:8px;padding:10px 12px;font-size:13px;border-color:var(--warn)"></div></div>`;
     if(w.type==='toomany')h+=`<div class="warn-box red"><div><div style="font-size:13px;font-weight:700;color:var(--red)">⚠️ Demasiadas restricciones</div><div style="font-size:12px;color:var(--t2);margin-top:4px">Tienes ${w.total} horas bloqueadas. Esto dificulta organizar tus repasos.</div><input class="inp" placeholder="¿Qué está pasando?" oninput="W.setWNote('${sid}',this.value)" value="${esc(d.blockNote||'')}" style="margin-top:8px;padding:10px 12px;font-size:13px;border-color:var(--red)"></div></div>`;
@@ -2107,6 +2147,92 @@ ${clasesDelTema.length?`<div style="font-size:10px;color:var(--t3);border-top:1p
   h+=`</div>`;return h;
 }
 
+// ═══ TOUR / COACHMARKS ═══
+function startTour(){
+  const TOUR_STEPS=[
+    {target:null,title:'¡Bienvenido a los repasos! 👋',text:'Vamos a pedirte unos datos para organizar tus clases con David y Lupe. Solo tarda 3 minutos y puedes editarlo después hasta la fecha límite.',btn:'Empezamos →'},
+    {target:'#tour-asignaturas',title:'📚 Elige tus asignaturas',text:'Selecciona las asignaturas en las que quieres repasar. Para cada una podrás indicar qué temas necesitas y cuándo tienes el examen.',btn:'Siguiente →'},
+    {target:'#tour-temas',title:'📋 Ordena tus temas',text:'Los temas que pongas más arriba son los que el sistema intentará colocarte antes. Puedes reordenarlos con las flechas ▲▼.',btn:'Siguiente →'},
+    {target:'#tour-urgente',title:'⚡ Antes de mi examen',text:'Marca esta opción en los temas que necesitas repasar ANTES de tu examen de final de curso (si no vas a la EBAU con esa asignatura o tu fecha es muy pronto). El sistema los prioriza automáticamente.',btn:'Siguiente →'},
+    {target:'#tour-fecha',title:'📅 Fecha de tu examen',text:'Indica cuándo tienes el examen final de esta asignatura. Si vas a la EBAU, es orientativo. Si NO vas a la EBAU, es la fecha límite para tus clases.',btn:'Siguiente →'},
+    {target:'#tour-calendario',title:'🚫 Horas que NO puedes',text:'Marca SOLO las horas en que NO puedes asistir. Si no marcas nada en un día, significa que estás disponible todo ese día. Menos restricciones = más opciones.',btn:'Siguiente →'},
+    {target:'#tour-preferencia',title:'📆 Repartidas o concentradas',text:'• Repartidas: una o dos clases por día, varios días distintos.\n• Concentradas: varias clases seguidas para venir menos veces.\nElige según tu preferencia, el sistema lo tendrá en cuenta.',btn:'Entendido ✓'}
+  ];
+  let step=0;
+  // Remove existing tour elements
+  document.getElementById('tour-ov')?.remove();
+  // Create overlay
+  const ov=document.createElement('div');ov.id='tour-ov';
+  ov.style.cssText='position:fixed;inset:0;z-index:10000';
+  document.body.appendChild(ov);
+
+  function closeTour(){
+    localStorage.setItem('ebau_tour_done','1');
+    ov.remove();
+  }
+
+  function showStep(){
+    ov.innerHTML='';
+    // Skip steps whose targets don't exist
+    while(step<TOUR_STEPS.length&&TOUR_STEPS[step].target!==null&&!document.querySelector(TOUR_STEPS[step].target)){
+      step++;
+    }
+    if(step>=TOUR_STEPS.length){closeTour();return}
+    const s=TOUR_STEPS[step];
+    const targetEl=s.target?document.querySelector(s.target):null;
+
+    if(targetEl){
+      // Highlight
+      const rect=targetEl.getBoundingClientRect();
+      const pad=8;
+      const hl=document.createElement('div');
+      hl.className='tour-highlight';
+      hl.style.top=(rect.top-pad)+'px';
+      hl.style.left=(rect.left-pad)+'px';
+      hl.style.width=(rect.width+pad*2)+'px';
+      hl.style.height=(rect.height+pad*2)+'px';
+      ov.appendChild(hl);
+      // Bubble
+      const bubble=document.createElement('div');
+      bubble.className='tour-bubble';
+      const spaceBelow=window.innerHeight-rect.bottom;
+      const spaceAbove=rect.top;
+      let arrowClass='top';
+      if(spaceBelow>200){
+        bubble.style.top=(rect.bottom+pad+12)+'px';
+        arrowClass='top';
+      } else {
+        bubble.style.bottom=(window.innerHeight-rect.top+pad+12)+'px';
+        arrowClass='bottom';
+      }
+      // Horizontal centering
+      const bubbleLeft=Math.max(20,Math.min(rect.left+rect.width/2-160,window.innerWidth-340));
+      bubble.style.left=bubbleLeft+'px';
+      bubble.innerHTML=buildBubbleHTML(s,arrowClass);
+      ov.appendChild(bubble);
+    } else {
+      // Centered modal
+      const bg=document.createElement('div');
+      bg.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78)';
+      ov.appendChild(bg);
+      const bubble=document.createElement('div');
+      bubble.className='tour-bubble center';
+      bubble.innerHTML=buildBubbleHTML(s,null);
+      ov.appendChild(bubble);
+    }
+    // Bind buttons
+    ov.querySelector('.tour-skip')?.addEventListener('click',closeTour);
+    ov.querySelector('.tour-next')?.addEventListener('click',()=>{step++;showStep()});
+  }
+
+  function buildBubbleHTML(s,arrowClass){
+    const dots=TOUR_STEPS.map((_,i)=>`<span class="${i===step?'on':''}"></span>`).join('');
+    return`${arrowClass?`<div class="tour-arrow ${arrowClass}"></div>`:''}<h3>${s.title}</h3><p>${s.text}</p><div class="tour-dots">${dots}</div><div class="tour-btns"><button class="tour-skip">Saltar tour</button><button class="tour-next">${s.btn}</button></div>`;
+  }
+
+  showStep();
+}
+
 // ═══ BIND ═══
 function bind(){
   // Splash
@@ -2271,6 +2397,34 @@ function bind(){
     document.getElementById('chk-est')?.addEventListener('change',function(){S.data[sid].estimated=this.checked;R()});
     document.getElementById('i-week')?.addEventListener('input',function(){S.data[sid].weekHint=this.value});
     document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click',()=>{S.tabs[sid]=t.dataset.tab;R()}));
+  }
+
+  // Ayuda colapsable
+  document.querySelectorAll('.ayuda-btn').forEach(btn=>{
+    btn.addEventListener('click',function(){
+      const id=this.dataset.ayuda;
+      const el=document.getElementById('ayuda-'+id);
+      if(el){
+        el.style.display=el.style.display==='none'?'block':'none';
+        this.textContent=el.style.display==='none'?'ℹ️ ¿Qué pongo aquí?':'✕ Cerrar ayuda';
+      }
+    });
+  });
+
+  // Botón ❓ flotante en wizard
+  document.getElementById('tour-help-btn')?.remove();
+  if(V==='wizard'){
+    const helpBtn=document.createElement('button');
+    helpBtn.id='tour-help-btn';
+    helpBtn.innerHTML='❓';
+    helpBtn.style.cssText='position:fixed;bottom:80px;right:16px;z-index:900;width:44px;height:44px;border-radius:50%;border:1px solid var(--brd);background:var(--card);color:var(--t2);font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4)';
+    helpBtn.addEventListener('click',()=>startTour());
+    document.body.appendChild(helpBtn);
+  }
+
+  // Tour automático primera vez
+  if(V==='wizard'&&!localStorage.getItem('ebau_tour_done')){
+    setTimeout(()=>startTour(),400);
   }
 }
 
