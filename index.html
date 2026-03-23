@@ -112,22 +112,12 @@ body.light .tab.on{background:#b8862e;color:#fff}
   border-radius:8px;padding:10px 12px;font-size:12px;color:var(--t2);
   line-height:1.5;margin-bottom:12px;
 }
-.tour-overlay{position:fixed;inset:0;z-index:10000;pointer-events:auto}
-.tour-highlight{position:absolute;z-index:10001;box-shadow:0 0 0 9999px rgba(0,0,0,.78);border-radius:12px;pointer-events:none;transition:all .3s}
-.tour-bubble{position:absolute;z-index:10002;background:var(--card);border:1px solid var(--brd);border-radius:14px;padding:18px 16px;max-width:320px;width:calc(100vw - 40px);box-shadow:0 8px 32px rgba(0,0,0,.5)}
-.tour-bubble.center{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%)}
-.tour-bubble h3{font-size:15px;font-weight:700;color:var(--gold2);margin-bottom:6px}
-.tour-bubble p{font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:14px;white-space:pre-line}
-.tour-dots{display:flex;gap:6px;justify-content:center;margin-bottom:12px}
-.tour-dots span{width:7px;height:7px;border-radius:50%;background:var(--brd);transition:background .2s}
-.tour-dots span.on{background:var(--gold)}
-.tour-btns{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.tour-btns button{padding:10px 18px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600}
-.tour-skip{background:transparent;color:var(--t2)}
-.tour-next{background:linear-gradient(135deg,var(--gold),#c4943d);color:#000}
-.tour-arrow{position:absolute;width:14px;height:14px;background:var(--card);border:1px solid var(--brd);transform:rotate(45deg)}
-.tour-arrow.top{top:-8px;left:50%;margin-left:-7px;border-right:none;border-bottom:none}
-.tour-arrow.bottom{bottom:-8px;left:50%;margin-left:-7px;border-left:none;border-top:none}
+.hint-bar{position:fixed;bottom:88px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:440px;background:#1e1c15;border:1px solid rgba(212,168,83,.5);border-radius:14px;padding:12px 14px;z-index:800;box-shadow:0 4px 24px rgba(0,0,0,.5);animation:fu .25s ease}
+.hint-bar.top-pos{bottom:auto;top:16px}
+.hint-bar.mini{width:44px;height:44px;border-radius:50%;padding:0;justify-content:center;bottom:88px;left:auto;right:16px;transform:none;font-size:20px;cursor:pointer;display:flex;align-items:center}
+body.light .hint-bar{background:#fffdf0;border-color:rgba(180,130,30,.5);box-shadow:0 4px 24px rgba(0,0,0,.15)}
+.hint-done-btn{display:block;width:100%;margin-top:10px;padding:11px;border-radius:10px;border:1px solid var(--gold);background:rgba(212,168,83,.12);color:var(--gold2);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;text-align:center;transition:transform .1s}
+.hint-done-btn:active{transform:scale(.97)}
 @media print{
   #theme-toggle,.theme-toggle,.tabs,[data-at],#adm-back,.btn-s,button:not(.btn){display:none!important}
   body{background:#fff!important;--bg:#fff;--card:#f8f8f8;--card2:#efefef;--t:#111;--t2:#444;--t3:#777;--brd:#ccc;--gold:#a0722a;--gold2:#7a5a1e}
@@ -175,6 +165,7 @@ let STU_CFG={};
 let ADMIN=false;
 let AD={alumnos:[],clases:[],config:{}};
 let LAST_MSG='';
+let HINT_ACTIVE=false,HINT_MINI=false;
 let STU_VIEW='subj'; // 'subj' | 'chrono'
 let AT='alumnos',ADATE=DT[0],ASTU='',ANEW=false,ANC={sid:'fisica',topic:'',date:'',hour:16,room:'fondo'},ASRCH='',AEXP={};
 let AEXP_EDIT={};
@@ -188,7 +179,7 @@ let REG={step:'datos',nombre:'',apellidos:'',telefono:'',centro:'',_centroOtro:'
 // Login
 let LG={nombre:'',apellidos:'',pinBuf:''};
 // Wizard (reuse existing pattern)
-let S={step:0,subs:[],data:{},tabs:{},openDay:{},accepted:false,msg:''};
+let S={step:0,subs:[],data:{},tabs:{},openDay:{},calSeen:{},calConfirmed:{},accepted:false,msg:''};
 
 // ═══ HELPERS ═══
 const DN=["dom","lun","mar","mié","jue","vie","sáb"];
@@ -208,8 +199,72 @@ function fmtHora(h){return fmtHoraMin(h)}
 function normStr(s){return(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')}
 function toast(m,ok){const e=document.createElement('div');e.className='toast';e.textContent=m;if(ok)e.style.background='var(--grn)';document.body.appendChild(e);setTimeout(()=>e.remove(),2800)}
 function showOv(show,msg='Cargando...'){document.getElementById('ov').style.display=show?'flex':'none';document.getElementById('ov-msg').textContent=msg}
-function R(){document.getElementById('app').innerHTML=renderV();bind()}
+function R(){document.getElementById('app').innerHTML=renderV();bind();hintBar()}
 function go(v){history.pushState({v:v},'','');V=v;R();window.scrollTo(0,0)}
+
+// ═══ HINT BAR ═══
+function getHintInfo(){
+  if(V==='reg'){
+    if(REG.step==='datos'){
+      if(!REG.nombre.trim()||!REG.apellidos.trim())
+        return{icon:'👋',text:'Empieza escribiendo tu <strong>nombre y apellidos</strong>',showDone:false};
+      const cOk=REG.centro&&REG.centro!=='OTRO'||REG._centroOtro?.trim();
+      if(!cOk)return{icon:'📍',text:'Ahora selecciona tu <strong>centro educativo</strong>',showDone:false};
+      return{icon:'✅',text:'¡Perfecto! Pulsa <strong>SIGUIENTE →</strong> para continuar',showDone:false};
+    }
+    if(REG.step==='config')
+      return{icon:'⚙️',text:'Elige si eres del curso o externo, y cómo prefieres organizar tus clases. Luego pulsa <strong>SIGUIENTE →</strong>',showDone:false};
+    if(REG.step==='pin')
+      return{icon:'🔑',text:'Crea un <strong>PIN de 4 dígitos</strong>. Lo necesitarás para entrar a tu área personal',showDone:false};
+    if(REG.step==='pin2')
+      return{icon:'🔑',text:'Repite el PIN para <strong>confirmarlo</strong>',showDone:false};
+  }
+  if(V==='wizard'){
+    if(S.step===0)
+      return S.subs.length
+        ?{icon:'✅',text:`${S.subs.length} asignatura${S.subs.length>1?'s':''} seleccionada${S.subs.length>1?'s':''}. Añade más o pulsa <strong>SIGUIENTE →</strong>`,showDone:false}
+        :{icon:'📚',text:'Toca las <strong>asignaturas</strong> en las que quieres repasar. Puedes elegir varias',showDone:false};
+    const sid=S.subs[S.step-1];const d=S.data[sid];
+    const tab=S.tabs[sid]||'topics';
+    if(tab==='topics'){
+      if(d.ebau===null||d.ebau===undefined)
+        return{icon:'🎓',text:'¿Vas a la <strong>EBAU</strong> con esta asignatura, o solo tienes el examen final?',showDone:false};
+      if(!d.finalDate)
+        return{icon:'📅',text:'Indica la <strong>fecha de tu examen</strong>. Ayuda a priorizarte en el calendario',showDone:false};
+      if(!d.topics.length)
+        return{icon:'📋',text:'Toca los <strong>temas</strong> para añadirlos. Luego ordénalos de más a menos urgente con las flechas ▲▼',showDone:false};
+      const allUrg=d.topics.every(t=>t.urgent===true||t.urgent===false);
+      if(!allUrg)
+        return{icon:'⚡',text:'Marca si cada tema es <strong>🔥 Antes del final</strong> o <strong>📅 Sin prisa</strong>',showDone:false};
+      return{icon:'🗓️',text:'Temas listos. Pulsa <strong>📅 No puedo</strong> — debes revisar tu disponibilidad para poder continuar',showDone:false,topPos:true};
+    }
+    if(tab==='calendar')
+      return{icon:'🚫',text:'Marca las horas en que <strong>NO puedes</strong> venir. Si no tienes restricciones, marca la casilla de confirmación al final',showDone:true,topPos:false};
+  }
+  if(V==='fin')
+    return{icon:'🎉',text:'Acepta las condiciones y pulsa <strong>GUARDAR Y CONFIRMAR</strong> para enviarnos tu petición',showDone:false};
+  return null;
+}
+function hintBar(){
+  document.getElementById('hint-bar')?.remove();
+  if(!HINT_ACTIVE)return;
+  const info=getHintInfo();
+  if(!info)return;
+  const bar=document.createElement('div');
+  bar.id='hint-bar';
+  if(HINT_MINI){
+    bar.className='hint-bar mini';
+    bar.title='Ver ayuda';
+    bar.textContent='💡';
+    bar.addEventListener('click',()=>{HINT_MINI=false;hintBar()});
+    document.body.appendChild(bar);return;
+  }
+  bar.className='hint-bar'+(info.topPos?' top-pos':'');
+  bar.innerHTML=`<div style="display:flex;align-items:flex-start;gap:10px;width:100%"><span style="font-size:20px;flex-shrink:0;margin-top:1px">${info.icon}</span><span style="flex:1;font-size:13px;line-height:1.45;color:var(--t2)">${info.text}</span><button id="hint-min" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:20px;padding:0 0 0 6px;flex-shrink:0;line-height:1" title="Minimizar">−</button></div>${info.showDone?'<button id="hint-done-btn" class="hint-done-btn">✓ He terminado el calendario →</button>':''}`;
+  document.body.appendChild(bar);
+  document.getElementById('hint-min')?.addEventListener('click',()=>{HINT_MINI=true;hintBar()});
+  document.getElementById('hint-done-btn')?.addEventListener('click',()=>{const nb=document.getElementById('next');if(nb&&!nb.disabled)nb.click()});
+}
 
 function renderV(){
   if(V==='splash')return splashH();
@@ -226,7 +281,7 @@ function renderV(){
 
 // ═══ SPLASH ═══
 function splashH(){return`<div class="c" style="position:relative;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden">
-<img src="bombilla-encajado.svg" alt="" aria-hidden="true" style="position:absolute;bottom:-15%;left:50%;transform:translateX(-50%);width:110%;max-width:500px;height:auto;opacity:0.13;z-index:0;pointer-events:none">
+<img src="bombilla-encajado.svg" alt="" aria-hidden="true" style="position:absolute;top:-35%;left:50%;transform:translateX(-50%);width:100%;height:auto;opacity:0.22;z-index:0;pointer-events:none">
 <div style="position:relative;z-index:1;width:100%;max-width:420px;padding:24px 16px;box-sizing:border-box">
 <img src="logo.svg" alt="Academia Coco Sapiens" style="width:100%;max-width:300px;height:auto;margin:0 auto 12px;display:block;filter:drop-shadow(0 0 14px rgba(212,168,83,.25))">
 <div style="font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:4px">REPASOS EBAU</div>
@@ -340,7 +395,8 @@ ${on?`<div style="margin-top:6px;font-size:16px;color:${s.a}">✓</div>`:''}</bu
 function wSub(ts){
   const si=S.step-1,sid=S.subs[si],sub=SJ.find(s=>s.id===sid),d=S.data[sid],tab=S.tabs[sid]||'topics',last=S.step===ts-1;
   const allUrg=d.topics.length>0&&d.topics.every(t=>t.urgent===true||t.urgent===false);
-  const canGo=d.topics.length>0&&d.finalDate&&d.ebau!==null&&d.ebau!==undefined&&allUrg;
+  const calOk=S.calSeen[sid]&&(d.blocked.length>0||S.calConfirmed[sid]);
+  const canGo=d.topics.length>0&&d.finalDate&&d.ebau!==null&&d.ebau!==undefined&&allUrg&&calOk;
   return`<div class="pb"><div style="width:${(S.step+1)*100/(ts+1)}%"></div></div>
 <div class="c"><div class="hdr"><button class="back-btn" id="back"><span class="back-arrow">←</span> Atrás</button><span>Paso ${S.step+1} de ${ts}</span></div>
 <div>
@@ -402,7 +458,7 @@ function topH(sid,sub,d){
 <span style="font-size:18px;font-weight:800;color:${sub.a};width:26px;text-align:center;flex-shrink:0">${i+1}</span>
 <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600">${t.name}</div>
 ${durText?`<div style="font-size:11px;color:var(--t3);margin-top:1px">⏱ ${durText}</div>`:''}</div>
-<div ${i===0?'id="tour-urgente" ':''}style="display:flex;gap:3px;flex-direction:column"><button class="urg-card${t.urgent===true?' sel-urg':''}" onclick="W.setUrg('${sid}','${esc2(t.name)}',true)">🔥 Urgente</button><button class="urg-card${t.urgent===false?' sel-nourg':''}" onclick="W.setUrg('${sid}','${esc2(t.name)}',false)">📅 Sin prisa</button></div>
+<div ${i===0?'id="tour-urgente" ':''}style="display:flex;gap:3px;flex-direction:column"><button class="urg-card${t.urgent===true?' sel-urg':''}" onclick="W.setUrg('${sid}','${esc2(t.name)}',true)">🔥 Antes del final</button><button class="urg-card${t.urgent===false?' sel-nourg':''}" onclick="W.setUrg('${sid}','${esc2(t.name)}',false)">📅 Sin prisa</button></div>
 <div style="display:flex;flex-direction:column;gap:3px">
 <button class="arrow-btn" onclick="W.movT('${sid}',${i},-1)" ${i===0?'disabled':''}>▲</button>
 <button class="arrow-btn" onclick="W.movT('${sid}',${i},1)" ${i===d.topics.length-1?'disabled':''}>▼</button>
@@ -438,14 +494,16 @@ function getWarnings(sid){
 }
 function calH(sid,sub,d){
   const warns=getWarnings(sid);
-  let h=`<div id="tour-calendario"><div style="background:rgba(212,168,83,.06);border:1px solid rgba(212,168,83,.12);border-radius:12px;padding:12px;margin-bottom:8px"><p style="font-size:13px;color:var(--gold2);line-height:1.5;margin:0"><strong>Asumimos que puedes venir siempre.</strong> Toca un día y marca solo las horas que <strong>NO puedes</strong>.</p></div>
+  let h=`<div id="tour-calendario"><div style="background:rgba(212,168,83,.06);border:1px solid rgba(212,168,83,.12);border-radius:12px;padding:12px;margin-bottom:10px"><p style="font-size:13px;color:var(--gold2);line-height:1.5;margin:0 0 10px 0"><strong>Asumimos que puedes venir siempre.</strong> Marca solo las horas que <strong>NO puedes</strong>.</p>
+${!d.blocked.length?`<label id="cal-confirm-lbl" style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:10px;border-radius:10px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25)"><input type="checkbox" id="cal-confirm" ${S.calConfirmed[sid]?'checked':''} style="accent-color:var(--grn);width:22px;height:22px;flex-shrink:0;margin-top:1px"><span style="font-size:13px;color:var(--t2);line-height:1.4">✅ <strong>Estoy libre y puedo venir en cualquier hueco.</strong> No tengo restricciones de horario.</span></label>`:`<div style="font-size:12px;color:var(--t3);font-style:italic">Has marcado ${d.blocked.length} restricción/es. Si quitas todas, deberás confirmar disponibilidad total.</div>`}
+</div>
 <div class="ayuda-btn" data-ayuda="calendario">ℹ️ ¿Qué pongo aquí?</div>
 <div class="ayuda-texto" id="ayuda-calendario" style="display:none">Toca las horas en las que NO puedes venir. Las horas que dejes sin marcar se entiende que estás disponible. Cuantas menos horas bloquees, más fácil será encontrarte un buen hueco.</div></div>`;
   warns.forEach(w=>{
     if(w.type==='weekend')h+=`<div class="warn-box yellow"><div><div style="font-size:13px;font-weight:700;color:var(--warn)">⚠️ ${fl(w.date)}: ${w.from}h-${w.to}h bloqueadas</div><div style="font-size:12px;color:var(--t2);margin-top:4px">¿Puedes explicarnos por qué?</div><input class="inp" placeholder="Explica brevemente..." oninput="W.setWNote('${sid}',this.value)" value="${esc(d.blockNote||'')}" style="margin-top:8px;padding:10px 12px;font-size:13px;border-color:var(--warn)"></div></div>`;
     if(w.type==='toomany')h+=`<div class="warn-box red"><div><div style="font-size:13px;font-weight:700;color:var(--red)">⚠️ Demasiadas restricciones</div><div style="font-size:12px;color:var(--t2);margin-top:4px">Tienes ${w.total} horas bloqueadas. Esto dificulta organizar tus repasos.</div><input class="inp" placeholder="¿Qué está pasando?" oninput="W.setWNote('${sid}',this.value)" value="${esc(d.blockNote||'')}" style="margin-top:8px;padding:10px 12px;font-size:13px;border-color:var(--red)"></div></div>`;
   });
-  if(S.subs.length>1)h+=`<button onclick="W.cpBl('${sid}')" style="padding:6px 10px;border-radius:8px;border:1px solid var(--brd);background:var(--card);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit;margin-bottom:10px">📋 Copiar a demás asignaturas</button>`;
+  if(S.subs.length>1)h+=`<div style="background:rgba(212,168,83,.07);border:1px solid rgba(212,168,83,.2);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;gap:10px"><span style="font-size:18px;flex-shrink:0">📋</span><div style="flex:1;font-size:12px;color:var(--t2);line-height:1.4">Si tu disponibilidad es igual para todas las asignaturas, <strong style="color:var(--gold2)">cópiala con este botón</strong> y no tendrás que rellenarla varias veces</div><button onclick="W.cpBl('${sid}')" style="padding:8px 12px;border-radius:8px;border:1px solid var(--gold);background:rgba(212,168,83,.12);color:var(--gold2);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap">Copiar →</button></div>`;
   [{l:'Abril 2026',m:3},{l:'Mayo 2026',m:4}].forEach(({l,m})=>{
     const mD=DT.filter(dt=>dt.startsWith('2026-'+String(m+1).padStart(2,'0')));
     const av=new Set(mD.map(dt=>new Date(dt+'T12:00:00').getDate()));
@@ -996,8 +1054,14 @@ W.setUrg=function(sid,n,v){const t=S.data[sid].topics.find(x=>x.name===n);if(t)t
 W.togDay=function(sid,ds){S.openDay[sid]=S.openDay[sid]===ds?null:ds;R()};
 W.togHr=function(sid,dt,hr){
   const d=S.data[sid];const key=dt+'-'+hr;const i=d.blocked.indexOf(key);
-  if(i>=0)d.blocked.splice(i,1);else d.blocked.push(key);
+  if(i>=0)d.blocked.splice(i,1);else{d.blocked.push(key);S.calConfirmed[sid]=false;}
   const tc=document.getElementById('tab-c');if(tc){const sub=SJ.find(s=>s.id===sid);tc.innerHTML=calH(sid,sub,d)}
+  // Recalculate next button
+  const allUrg=d.topics.every(t=>t.urgent===true||t.urgent===false);
+  const calOk=S.calSeen[sid]&&(d.blocked.length>0||S.calConfirmed[sid]);
+  const nb=document.getElementById('next');
+  if(nb)nb.disabled=!(d.topics.length&&d.finalDate&&d.ebau!==null&&d.ebau!==undefined&&allUrg&&calOk);
+  hintBar();
 };
 W.setWNote=function(sid,v){S.data[sid].blockNote=v};
 W.cpBl=function(sid){const f=S.data[sid].blocked;S.subs.forEach(s=>{if(s!==sid)S.data[s].blocked=[...f]});toast('Copiado ✓',true)};
@@ -2149,96 +2213,11 @@ ${clasesDelTema.length?`<div style="font-size:10px;color:var(--t3);border-top:1p
   h+=`</div>`;return h;
 }
 
-// ═══ TOUR / COACHMARKS ═══
-function startTour(){
-  const TOUR_STEPS=[
-    {target:null,title:'¡Bienvenido a los repasos! 👋',text:'Vamos a pedirte unos datos para organizar tus clases con David y Lupe. Solo tarda 3 minutos y puedes editarlo después hasta la fecha límite.',btn:'Empezamos →'},
-    {target:'#tour-asignaturas',title:'📚 Elige tus asignaturas',text:'Selecciona las asignaturas en las que quieres repasar. Para cada una podrás indicar qué temas necesitas y cuándo tienes el examen.',btn:'Siguiente →'},
-    {target:'#tour-temas',title:'📋 Ordena tus temas',text:'Los temas que pongas más arriba son los que el sistema intentará colocarte antes. Puedes reordenarlos con las flechas ▲▼.',btn:'Siguiente →'},
-    {target:'#tour-urgente',title:'⚡ Antes de mi examen',text:'Marca esta opción en los temas que necesitas repasar ANTES de tu examen de final de curso (si no vas a la EBAU con esa asignatura o tu fecha es muy pronto). El sistema los prioriza automáticamente.',btn:'Siguiente →'},
-    {target:'#tour-fecha',title:'📅 Fecha de tu examen',text:'Indica cuándo tienes el examen final de esta asignatura. Si vas a la EBAU, es orientativo. Si NO vas a la EBAU, es la fecha límite para tus clases.',btn:'Siguiente →'},
-    {target:'#tour-calendario',title:'🚫 Horas que NO puedes',text:'Marca SOLO las horas en que NO puedes asistir. Si no marcas nada en un día, significa que estás disponible todo ese día. Menos restricciones = más opciones.',btn:'Siguiente →'},
-    {target:'#tour-preferencia',title:'📆 Repartidas o concentradas',text:'• Repartidas: una o dos clases por día, varios días distintos.\n• Concentradas: varias clases seguidas para venir menos veces.\nElige según tu preferencia, el sistema lo tendrá en cuenta.',btn:'Entendido ✓'}
-  ];
-  let step=0;
-  // Remove existing tour elements
-  document.getElementById('tour-ov')?.remove();
-  // Create overlay
-  const ov=document.createElement('div');ov.id='tour-ov';
-  ov.style.cssText='position:fixed;inset:0;z-index:10000';
-  document.body.appendChild(ov);
-
-  function closeTour(){
-    localStorage.setItem('ebau_tour_done','1');
-    ov.remove();
-  }
-
-  function showStep(){
-    ov.innerHTML='';
-    // Skip steps whose targets don't exist
-    while(step<TOUR_STEPS.length&&TOUR_STEPS[step].target!==null&&!document.querySelector(TOUR_STEPS[step].target)){
-      step++;
-    }
-    if(step>=TOUR_STEPS.length){closeTour();return}
-    const s=TOUR_STEPS[step];
-    const targetEl=s.target?document.querySelector(s.target):null;
-
-    if(targetEl){
-      // Highlight
-      const rect=targetEl.getBoundingClientRect();
-      const pad=8;
-      const hl=document.createElement('div');
-      hl.className='tour-highlight';
-      hl.style.top=(rect.top-pad)+'px';
-      hl.style.left=(rect.left-pad)+'px';
-      hl.style.width=(rect.width+pad*2)+'px';
-      hl.style.height=(rect.height+pad*2)+'px';
-      ov.appendChild(hl);
-      // Bubble
-      const bubble=document.createElement('div');
-      bubble.className='tour-bubble';
-      const spaceBelow=window.innerHeight-rect.bottom;
-      const spaceAbove=rect.top;
-      let arrowClass='top';
-      if(spaceBelow>200){
-        bubble.style.top=(rect.bottom+pad+12)+'px';
-        arrowClass='top';
-      } else {
-        bubble.style.bottom=(window.innerHeight-rect.top+pad+12)+'px';
-        arrowClass='bottom';
-      }
-      // Horizontal centering
-      const bubbleLeft=Math.max(20,Math.min(rect.left+rect.width/2-160,window.innerWidth-340));
-      bubble.style.left=bubbleLeft+'px';
-      bubble.innerHTML=buildBubbleHTML(s,arrowClass);
-      ov.appendChild(bubble);
-    } else {
-      // Centered modal
-      const bg=document.createElement('div');
-      bg.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78)';
-      ov.appendChild(bg);
-      const bubble=document.createElement('div');
-      bubble.className='tour-bubble center';
-      bubble.innerHTML=buildBubbleHTML(s,null);
-      ov.appendChild(bubble);
-    }
-    // Bind buttons
-    ov.querySelector('.tour-skip')?.addEventListener('click',closeTour);
-    ov.querySelector('.tour-next')?.addEventListener('click',()=>{step++;showStep()});
-  }
-
-  function buildBubbleHTML(s,arrowClass){
-    const dots=TOUR_STEPS.map((_,i)=>`<span class="${i===step?'on':''}"></span>`).join('');
-    return`${arrowClass?`<div class="tour-arrow ${arrowClass}"></div>`:''}<h3>${s.title}</h3><p>${s.text}</p><div class="tour-dots">${dots}</div><div class="tour-btns"><button class="tour-skip">Saltar tour</button><button class="tour-next">${s.btn}</button></div>`;
-  }
-
-  showStep();
-}
 
 // ═══ BIND ═══
 function bind(){
   // Splash
-  document.getElementById('go-new')?.addEventListener('click',()=>{REG={step:'datos',nombre:'',apellidos:'',telefono:'',centro:'',_centroOtro:'',esExterno:false,prefConcentrar:false,pin:'',pinBuf:'',pinBuf2:'',pinPhase:1};go('reg')});
+  document.getElementById('go-new')?.addEventListener('click',()=>{REG={step:'datos',nombre:'',apellidos:'',telefono:'',centro:'',_centroOtro:'',esExterno:false,prefConcentrar:false,pin:'',pinBuf:'',pinBuf2:'',pinPhase:1};if(!localStorage.getItem('ebau_hint_done')){HINT_ACTIVE=true;HINT_MINI=false;}go('reg')});
   document.getElementById('go-login')?.addEventListener('click',()=>{LG={nombre:'',apellidos:'',pinBuf:''};go('login')});
   document.getElementById('go-adm')?.addEventListener('click',()=>go('admin-login'));
 
@@ -2247,15 +2226,15 @@ function bind(){
 
   // Registro datos
   function updRegNext(){const centroOk=REG.centro&&REG.centro!=='OTRO'||REG._centroOtro?.trim();const b=document.getElementById('next');if(b)b.disabled=!(REG.nombre.trim()&&REG.apellidos.trim()&&centroOk)}
-  document.getElementById('r-nombre')?.addEventListener('input',function(){REG.nombre=this.value;updRegNext()});
-  document.getElementById('r-apellidos')?.addEventListener('input',function(){REG.apellidos=this.value;updRegNext()});
+  document.getElementById('r-nombre')?.addEventListener('input',function(){REG.nombre=this.value;updRegNext();hintBar()});
+  document.getElementById('r-apellidos')?.addEventListener('input',function(){REG.apellidos=this.value;updRegNext();hintBar()});
   document.getElementById('r-telefono')?.addEventListener('input',function(){REG.telefono=this.value});
-  document.getElementById('r-centro-sel')?.addEventListener('change',function(){REG.centro=this.value;if(this.value==='OTRO'){REG._centroOtro='';R()}else{REG._centroOtro='';updRegNext()}});
-  document.getElementById('r-centro-otro')?.addEventListener('input',function(){REG._centroOtro=this.value;updRegNext()});
+  document.getElementById('r-centro-sel')?.addEventListener('change',function(){REG.centro=this.value;if(this.value==='OTRO'){REG._centroOtro='';R()}else{REG._centroOtro='';updRegNext();hintBar()}});
+  document.getElementById('r-centro-otro')?.addEventListener('input',function(){REG._centroOtro=this.value;updRegNext();hintBar()});
 
   // Registro config
-  document.querySelectorAll('input[name="tipo"]').forEach(r=>r.addEventListener('change',function(){REG.esExterno=this.value==='externo';document.querySelectorAll('.radio-card').forEach(c=>c.classList.remove('sel'));this.closest('.radio-card')?.classList.add('sel')}));
-  document.querySelectorAll('input[name="pref"]').forEach(r=>r.addEventListener('change',function(){REG.prefConcentrar=this.value==='concentradas';this.closest('.radio-card')?.classList.add('sel')}));
+  document.querySelectorAll('input[name="tipo"]').forEach(r=>r.addEventListener('change',function(){REG.esExterno=this.value==='externo';document.querySelectorAll('.radio-card').forEach(c=>c.classList.remove('sel'));this.closest('.radio-card')?.classList.add('sel');hintBar()}));
+  document.querySelectorAll('input[name="pref"]').forEach(r=>r.addEventListener('change',function(){REG.prefConcentrar=this.value==='concentradas';this.closest('.radio-card')?.classList.add('sel');hintBar()}));
 
   // PIN handler (registro)
   if(V==='reg'&&(REG.step==='pin'||REG.step==='pin2')){
@@ -2398,8 +2377,20 @@ function bind(){
     document.getElementById('i-final')?.addEventListener('change',function(){S.data[sid].finalDate=this.value;R()});
     document.getElementById('chk-est')?.addEventListener('change',function(){S.data[sid].estimated=this.checked;R()});
     document.getElementById('i-week')?.addEventListener('input',function(){S.data[sid].weekHint=this.value});
-    document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click',()=>{S.tabs[sid]=t.dataset.tab;R()}));
+    document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click',()=>{if(t.dataset.tab==='calendar')S.calSeen[sid]=true;S.tabs[sid]=t.dataset.tab;R()}));
   }
+
+  // Confirmación calendario sin restricciones
+  document.getElementById('cal-confirm')?.addEventListener('change',function(){
+    const sid=S.subs[S.step-1];if(!sid)return;
+    S.calConfirmed[sid]=this.checked;
+    const d=S.data[sid];
+    const allUrg=d.topics.every(t=>t.urgent===true||t.urgent===false);
+    const calOk=S.calSeen[sid]&&(d.blocked.length>0||S.calConfirmed[sid]);
+    const nb=document.getElementById('next');
+    if(nb)nb.disabled=!(d.topics.length&&d.finalDate&&d.ebau!==null&&d.ebau!==undefined&&allUrg&&calOk);
+    hintBar();
+  });
 
   // Ayuda colapsable
   document.querySelectorAll('.ayuda-btn').forEach(btn=>{
@@ -2413,26 +2404,22 @@ function bind(){
     });
   });
 
-  // Botón ❓ flotante en wizard
-  document.getElementById('tour-help-btn')?.remove();
-  if(V==='wizard'){
+  // Botón ❓ para reactivar hint bar
+  document.getElementById('hint-help-btn')?.remove();
+  if((V==='wizard'||V==='reg'||V==='fin')&&!HINT_ACTIVE){
     const helpBtn=document.createElement('button');
-    helpBtn.id='tour-help-btn';
-    helpBtn.innerHTML='❓';
-    helpBtn.style.cssText='position:fixed;bottom:80px;right:16px;z-index:900;width:44px;height:44px;border-radius:50%;border:1px solid var(--brd);background:var(--card);color:var(--t2);font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4)';
-    helpBtn.addEventListener('click',()=>startTour());
+    helpBtn.id='hint-help-btn';
+    helpBtn.innerHTML='💡';
+    helpBtn.style.cssText='position:fixed;bottom:88px;right:16px;z-index:900;width:44px;height:44px;border-radius:50%;border:1px solid var(--brd);background:var(--card);color:var(--t2);font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4)';
+    helpBtn.title='Activar ayuda guiada';
+    helpBtn.addEventListener('click',()=>{HINT_ACTIVE=true;HINT_MINI=false;document.getElementById('hint-help-btn')?.remove();hintBar()});
     document.body.appendChild(helpBtn);
-  }
-
-  // Tour automático primera vez
-  if(V==='wizard'&&!localStorage.getItem('ebau_tour_done')){
-    setTimeout(()=>startTour(),400);
   }
 }
 
 // ═══ WIZARD LOGIC ═══
 function startWizard(){
-  S={step:0,subs:[],data:{},tabs:{},openDay:{},accepted:false,msg:''};
+  S={step:0,subs:[],data:{},tabs:{},openDay:{},calSeen:{},calConfirmed:{},accepted:false,msg:''};
   go('wizard');
 }
 
@@ -2490,6 +2477,7 @@ async function saveToSupabase(){
     }
     showOv(false);
     toast('✅ Petición guardada',true);
+    HINT_ACTIVE=false;localStorage.setItem('ebau_hint_done','1');hintBar();
   } catch(e){
     showOv(false);
     toast('Error al guardar: '+e.message);
@@ -2498,7 +2486,7 @@ async function saveToSupabase(){
 
 function editarPeticion(){
   // Reload wizard with existing data
-  S={step:0,subs:[],data:{},tabs:{},openDay:{},accepted:false,msg:''};
+  S={step:0,subs:[],data:{},tabs:{},openDay:{},calSeen:{},calConfirmed:{},accepted:false,msg:''};
   const peds=ALUMNO.peticiones||[];
   peds.forEach(p=>{
     S.subs.push(p.asignatura_id);
