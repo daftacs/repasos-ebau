@@ -279,6 +279,8 @@ function getHintInfo(){
     const sid=S.subs[S.step-1];const d=S.data[sid];
     const tab=S.tabs[sid]||'topics';
     if(tab==='topics'){
+      if(!REG.esExterno&&(d.esExterno===null||d.esExterno===undefined))
+        return{icon:'🏫',text:'Primero dinos si estás cursando esta asignatura <strong>con nosotros en la academia</strong> o solo vienes al repaso',showDone:false};
       if(d.ebau===null||d.ebau===undefined)
         return{icon:'🎓',text:'¿Vas a la <strong>EBAU</strong> con esta asignatura, o solo tienes el examen final?',showDone:false};
       if(!d.finalDate)
@@ -449,7 +451,8 @@ function wSub(ts){
   const si=S.step-1,sid=S.subs[si],sub=SJ.find(s=>s.id===sid),d=S.data[sid],tab=S.tabs[sid]||'topics',last=S.step===ts-1;
   const allUrg=d.topics.length>0&&d.topics.every(t=>t.urgent===true||t.urgent===false);
   const calOk=S.calSeen[sid]&&(d.blocked.length>0||S.calConfirmed[sid]);
-  const canGo=d.topics.length>0&&d.finalDate&&d.ebau!==null&&d.ebau!==undefined&&allUrg&&calOk;
+  const extOk=REG.esExterno||(d.esExterno!==null&&d.esExterno!==undefined);
+  const canGo=d.topics.length>0&&d.finalDate&&d.ebau!==null&&d.ebau!==undefined&&allUrg&&calOk&&extOk;
   return`<div class="pb"><div style="width:${(S.step+1)*100/(ts+1)}%"></div></div>
 <div class="c"><div class="hdr"><button class="back-btn" id="back"><span class="back-arrow">←</span> Atrás</button><span>Paso ${S.step+1} de ${ts}</span></div>
 <div>
@@ -457,6 +460,12 @@ function wSub(ts){
 <div><h2 style="font-family:'Playfair Display',serif;font-size:20px;color:${sub.a}">${sub.n}</h2>
 <div style="font-size:11px;color:var(--t3)">Asignatura ${si+1} de ${S.subs.length}</div></div></div>
 
+${!REG.esExterno?`<div style="background:rgba(212,168,83,.06);border:1px solid rgba(212,168,83,.15);border-radius:12px;padding:12px;margin-bottom:14px">
+<p style="font-size:13px;font-weight:600;color:var(--t2);margin:0 0 8px 0">¿Estás cursando <strong style="color:var(--gold2)">${sub.n}</strong> con nosotros en la academia?</p>
+<div class="radio-row">
+<label class="radio-card ${d.esExterno===false?'sel':''}"><input type="radio" name="ext-${sid}" value="academia" ${d.esExterno===false?'checked':''}><div><div style="font-weight:600">Sí, la curso aquí</div><div style="font-size:12px;color:var(--t2)">Tarifa de alumno del curso</div></div></label>
+<label class="radio-card ${d.esExterno===true?'sel':''}"><input type="radio" name="ext-${sid}" value="externo" ${d.esExterno===true?'checked':''}><div><div style="font-weight:600">No, solo el repaso</div><div style="font-size:12px;color:var(--t2)">Tarifa externa (+5€/h)</div></div></label>
+</div></div>`:''}
 <div style="display:flex;gap:8px;margin-bottom:12px">
 <div class="ebau-card${d.ebau===true?' sel-green':''}" onclick="W.setEbau('${sid}',true)">
 <div style="font-size:24px;margin-bottom:4px">🎓</div>
@@ -2445,7 +2454,7 @@ function bind(){
   document.querySelectorAll('.sjc').forEach(c=>c.addEventListener('click',()=>{
     const id=c.dataset.id;
     if(S.subs.includes(id)){S.subs=S.subs.filter(s=>s!==id);delete S.data[id]}
-    else{S.subs.push(id);S.data[id]={ebau:null,finalDate:'',estimated:false,weekHint:'',topics:[],blocked:[],blockNote:''};S.tabs[id]='topics';S.openDay[id]=null}
+    else{S.subs.push(id);S.data[id]={ebau:null,finalDate:'',estimated:false,weekHint:'',topics:[],blocked:[],blockNote:'',esExterno:REG.esExterno?true:null};S.tabs[id]='topics';S.openDay[id]=null}
     R();
   }));
   // Wizard: subject detail
@@ -2455,6 +2464,12 @@ function bind(){
     document.getElementById('chk-est')?.addEventListener('change',function(){S.data[sid].estimated=this.checked;R()});
     document.getElementById('i-week')?.addEventListener('input',function(){S.data[sid].weekHint=this.value});
     document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click',()=>{if(t.dataset.tab==='calendar')S.calSeen[sid]=true;S.tabs[sid]=t.dataset.tab;R()}));
+  }
+
+  // Tipo de alumno por asignatura
+  if(V==='wizard'&&S.step>0){
+    const sid=S.subs[S.step-1];
+    document.querySelectorAll(`input[name="ext-${sid}"]`).forEach(r=>r.addEventListener('change',function(){S.data[sid].esExterno=this.value==='externo';R()}));
   }
 
   // Confirmación calendario sin restricciones
@@ -2504,11 +2519,12 @@ function genMsg(){
   let m=`🎓 REPASOS EBAU · COCO SAPIENS\n━━━━━━━━━━━━━━━━━━━━\n👤 ${REG.nombre} ${REG.apellidos}\n`;
   if(REG.telefono)m+=`📱 ${REG.telefono}\n`;
   m+=`🏫 ${getCentro()}\n`;
-  m+=`🎓 ${REG.esExterno?'Alumno externo':'Alumno del curso'}\n`;
   m+=`📋 Preferencia: ${REG.prefConcentrar?'Clases concentradas':'Clases repartidas'}\n`;
   S.subs.forEach(sid=>{
     const sub=SJ.find(s=>s.id===sid);const d=S.data[sid];
-    m+=`\n📚 ${sub.n.toUpperCase()}\n🎯 EBAU: ${d.ebau?'SÍ':'NO'}\n`;
+    m+=`\n📚 ${sub.n.toUpperCase()}\n`;
+    m+=`👤 ${d.esExterno?'Alumno/a externo/a':'Alumno/a del curso'}\n`;
+    m+=`🎯 EBAU: ${d.ebau?'SÍ':'NO'}\n`;
     const f=d.finalDate?new Date(d.finalDate+'T12:00:00'):null;
     m+=`📅 Final: ${f?f.getDate()+'/'+(f.getMonth()+1)+'/'+f.getFullYear():'??'}${d.estimated?' (estimada)'+(d.weekHint?' → '+d.weekHint:''):''}\n📋 Temas:\n`;
     d.topics.forEach((t,i)=>{const info=(TP[sid]||[]).find(x=>x.name===t.name);m+=`  ${i+1}. ${t.name}${info?' ('+fmtDur(info.dur)+')':''}${t.urgent?' 🔥':''}\n`});
@@ -2550,7 +2566,7 @@ async function saveToSupabase(){
     await db.from('peticiones').delete().eq('alumno_id',alumnoId);
     for(const sid of S.subs){
       const d=S.data[sid];
-      await db.from('peticiones').insert({alumno_id:alumnoId,asignatura_id:sid,temas:d.topics,horas_bloqueadas:d.blocked,fecha_examen:d.finalDate||null,es_ebau:d.ebau,fecha_estimada:d.estimated,semana_hint:d.weekHint||null,nota_bloqueo:d.blockNote||null});
+      await db.from('peticiones').insert({alumno_id:alumnoId,asignatura_id:sid,temas:d.topics,horas_bloqueadas:d.blocked,fecha_examen:d.finalDate||null,es_ebau:d.ebau,fecha_estimada:d.estimated,semana_hint:d.weekHint||null,nota_bloqueo:d.blockNote||null,es_externo:d.esExterno===true});
     }
     showOv(false);
     toast('✅ Petición guardada',true);
