@@ -241,6 +241,12 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function tarifa(n){if(n<2)return 0;return n>=4?10:n>=3?13:15}
 function tarifaExt(n){if(n<2)return 0;return tarifa(n)+5}
 function tarifaAlumno(n,esExterno){return esExterno?tarifaExt(n):tarifa(n)}
+function esExternoParaSub(alumnoId,subjectId){
+  const a=AD?.alumnos?.find(x=>x.id===alumnoId);
+  const ped=(a?.peticiones||[]).find(p=>p.asignatura_id===subjectId);
+  if(ped&&ped.es_externo!==null&&ped.es_externo!==undefined)return ped.es_externo;
+  return a?.es_externo||false;
+}
 function fmtDur(d){const h=Math.floor(d);const m=Math.round((d-h)*60);return h+'h'+(m?m+'min':'')}
 function fd(d){const x=new Date(d+'T12:00:00');return x.getDate()+'/'+(x.getMonth()+1)}
 function fl(d){const x=new Date(d+'T12:00:00');return DN[x.getDay()]+' '+x.getDate()+'/'+(x.getMonth()+1)}
@@ -892,7 +898,7 @@ function claseCard(c){
   const insc=c.inscripciones||[];
   const nStu=insc.length;
   const rate=nStu>=2?tarifa(nStu):0;
-  const hasExt=nStu>=2&&insc.some(i=>{const a=AD.alumnos.find(x=>x.id===i.alumno_id);return a?.es_externo});
+  const hasExt=nStu>=2&&insc.some(i=>esExternoParaSub(i.alumno_id,c.asignatura_id));
   const rateExt=hasExt?tarifaExt(nStu):0;
   const tInfo=(TP[c.asignatura_id]||[]).find(t=>t.name===c.tema);
   const dur=parseFloat(c.duracion_horas||tInfo?.dur||2);
@@ -1084,9 +1090,10 @@ function buildMsgSP(conPrecio){
       m+=`     ${c.tema}\n`;
       if(conPrecio){
         const myInsc=insc.find(i=>i.alumno_id===st.id);
-        const rate=myInsc?.precio_hora||(st.es_externo?tarifaExt(nStu):tarifa(nStu));
+        const extSub=esExternoParaSub(st.id,c.asignatura_id);
+        const rate=myInsc?.precio_hora||(extSub?tarifaExt(nStu):tarifa(nStu));
         const cost=Math.round(rate*dur*100)/100;total+=cost;
-        m+=`     ${nStu} alumnos → ${rate}€/h${st.es_externo?' (+5€ externo)':''} · *${cost}€ esta clase*\n`;
+        m+=`     ${nStu} alumnos → ${rate}€/h${extSub?' (+5€ externo)':''} · *${cost}€ esta clase*\n`;
       }
     });
   });
@@ -1353,8 +1360,7 @@ W.colocarTema=async function(subId,topicName,fecha,horaInicio,stuIds){
   cls.inscripciones=[];
   const nStu=stuIds.length;
   for(const sid of stuIds){
-    const a=AD.alumnos.find(x=>x.id===sid);
-    const ph=parseFloat(a?.es_externo?tarifaExt(nStu):tarifa(nStu));
+    const ph=parseFloat(esExternoParaSub(sid,subId)?tarifaExt(nStu):tarifa(nStu));
     const pt=Math.round(ph*dur*100)/100;
     const {data:insc,error:eInsc}=await db.from('inscripciones').insert({clase_id:cls.id,alumno_id:sid,precio_hora:ph,precio_total:pt}).select().single();
     if(eInsc){showOv(false);toast('❌ Error inscripción ['+eInsc.code+']: '+eInsc.message);return;}
@@ -1420,9 +1426,8 @@ W.togCS=async function(cid,aid){
   } else {
     const rm=RM.find(r=>r.id===c.aula);
     if(c.inscripciones.length>=(rm?.c||8)){toast('Clase llena');return}
-    const a=AD.alumnos.find(x=>x.id===aid);
     const nStu=c.inscripciones.length+1;
-    const ph=a?.es_externo?tarifaExt(nStu):tarifa(nStu);
+    const ph=esExternoParaSub(aid,c.asignatura_id)?tarifaExt(nStu):tarifa(nStu);
     const pt=Math.round(ph*(c.duracion_horas||2)*100)/100;
     const {data}=await db.from('inscripciones').insert({clase_id:cid,alumno_id:aid,precio_hora:ph,precio_total:pt}).select().single();
     if(data)c.inscripciones.push(data);
@@ -1432,8 +1437,7 @@ W.togCS=async function(cid,aid){
   const tInfo2=(TP[c.asignatura_id]||[]).find(t=>t.name===c.tema);
   const dur2=parseFloat(c.duracion_horas||tInfo2?.dur||2);
   for(const insc of c.inscripciones){
-    const a=AD.alumnos.find(x=>x.id===insc.alumno_id);
-    const ph=tarifaAlumno(nNew,a?.es_externo);
+    const ph=tarifaAlumno(nNew,esExternoParaSub(insc.alumno_id,c.asignatura_id));
     const pt=ph>0?Math.round(ph*dur2*100)/100:0;
     await db.from('inscripciones').update({precio_hora:ph,precio_total:pt}).eq('id',insc.id);
     insc.precio_hora=ph;insc.precio_total=pt;
@@ -1811,8 +1815,7 @@ W._doAutoOrg=async function(){
         const stuToAdd=av.slice(0,rm.c);
         const nStu=stuToAdd.length;
         for(const sid of stuToAdd){
-          const a=sorted.find(x=>x.id===sid);
-          const ph=tarifaAlumno(nStu,a?.es_externo);
+          const ph=tarifaAlumno(nStu,esExternoParaSub(sid,sub.id));
           const pt=Math.round(ph*dur*100)/100;
           const{data:insc}=await db.from('inscripciones').insert({clase_id:cls.id,alumno_id:sid,precio_hora:ph,precio_total:pt}).select().single();
           if(insc)cls.inscripciones.push(insc);
@@ -2044,7 +2047,7 @@ W.openClasePanel=function(cid){
   const noEnrolled=conTema.filter(a=>!enrolled.includes(a.id));
   const sessions=getDaySessions(c.fecha);
   const rate=nStu>=2?tarifa(nStu):0;
-  const hasExt=nStu>=2&&insc.some(i=>{const a=AD.alumnos.find(x=>x.id===i.alumno_id);return a?.es_externo});
+  const hasExt=nStu>=2&&insc.some(i=>esExternoParaSub(i.alumno_id,c.asignatura_id));
   const rateExt=hasExt?tarifaExt(nStu):0;
 
   // Cambio 3: 3 mejores opciones de reubicación
