@@ -684,11 +684,18 @@ ${(STU_CFG.edicion_activa!=='false'&&ALUMNO.puede_editar)?`<button id="btn-edit"
 </div>`:`<div style="background:var(--card);border-radius:14px;padding:20px;border:1px solid var(--brd);margin-bottom:12px;text-align:center;color:var(--t2);font-size:13px">No hay petición registrada</div>`}
 
 <div style="background:var(--card);border-radius:14px;padding:16px;border:1px solid var(--brd)">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-<div style="font-weight:700;font-size:15px;color:var(--gold2)">📅 Mis clases asignadas</div>
+<div style="font-weight:700;font-size:15px;color:var(--gold2);margin-bottom:12px">📅 Mis clases asignadas</div>
+${STU_CFG.horarios_visibles!=='true'
+  ?`<div style="text-align:center;padding:16px 0">
+<div style="font-size:32px;margin-bottom:8px">⏳</div>
+<div style="font-size:14px;font-weight:600;color:var(--t);margin-bottom:6px">Horarios en preparación</div>
+<div style="font-size:12px;color:var(--t2);line-height:1.6">Estamos organizando los grupos y verificando los horarios.<br>Te avisaremos por WhatsApp cuando estén listos.</div>
+</div>`
+  :`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+<div></div>
 ${ALUMNO_CLASES.length?`<div style="display:flex;gap:4px"><button id="stu-v-subj" class="btn btn-s" style="padding:5px 10px;font-size:11px;${STU_VIEW==='subj'?'background:var(--gold);color:#000;':'opacity:0.5;'}">Por materia</button><button id="stu-v-chrono" class="btn btn-s" style="padding:5px 10px;font-size:11px;${STU_VIEW==='chrono'?'background:var(--gold);color:#000;':'opacity:0.5;'}">Cronológico</button></div>`:''}
 </div>
-${ALUMNO_CLASES.length?stuClasesH():`<div style="text-align:center;color:var(--t3);font-size:13px;padding:12px 0">Todavía no tienes clases asignadas.<br><span style="font-size:11px">Te avisaremos cuando estén listas.</span></div>`}
+${ALUMNO_CLASES.length?stuClasesH():`<div style="text-align:center;color:var(--t3);font-size:13px;padding:12px 0">Todavía no tienes clases asignadas.<br><span style="font-size:11px">Te avisaremos cuando estén listas.</span></div>`}`}
 </div>
 </div></div>`}
 
@@ -1027,6 +1034,7 @@ ${dates.map(date=>{
 
 function admConfig(){
   const edAct=AD.config.edicion_activa!=='false';
+  const horAct=AD.config.horarios_visibles==='true';
   const fLim=AD.config.fecha_limite||'2026-03-26';
   return`<div class="fu"><h2 style="font-family:'Playfair Display',serif;font-size:17px;color:var(--gold2);margin-bottom:14px">Configuración</h2>
 
@@ -1035,6 +1043,13 @@ function admConfig(){
 <div><div style="font-weight:600;font-size:14px">Edición global activa</div>
 <div style="font-size:12px;color:var(--t2)">Todos los alumnos pueden editar su petición</div></div>
 <button onclick="W.togEdGlobal(${!edAct})" style="padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;background:${edAct?'rgba(34,197,94,.15)':'rgba(239,68,68,.1)'};color:${edAct?'var(--grn)':'var(--red)'}">${edAct?'✅ ON':'❌ OFF'}</button>
+</div></div>
+
+<div style="background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--brd);margin-bottom:10px">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<div><div style="font-weight:600;font-size:14px">Horarios visibles para alumnos</div>
+<div style="font-size:12px;color:var(--t2)">Actívalo cuando los horarios estén verificados y listos</div></div>
+<button onclick="W.togHorarios(${!horAct})" style="padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;background:${horAct?'rgba(34,197,94,.15)':'rgba(239,68,68,.1)'};color:${horAct?'var(--grn)':'var(--red)'}">${horAct?'✅ ON':'❌ OFF'}</button>
 </div></div>
 
 <div style="background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--brd);margin-bottom:14px">
@@ -1192,6 +1207,10 @@ W.togExt=async function(id,val){
 W.togEdGlobal=async function(val){
   await db.from('config').upsert({clave:'edicion_activa',valor:val?'true':'false'});
   AD.config.edicion_activa=val?'true':'false';R();toast(val?'Edición activada para todos':'Edición desactivada',val);
+};
+W.togHorarios=async function(val){
+  await db.from('config').upsert({clave:'horarios_visibles',valor:val?'true':'false'});
+  AD.config.horarios_visibles=val?'true':'false';R();toast(val?'✅ Horarios visibles para los alumnos':'Horarios ocultados',val);
 };
 W.saveFLim=async function(){
   const v=document.getElementById('cfg-flim')?.value;if(!v)return;
