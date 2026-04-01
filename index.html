@@ -7,7 +7,17 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0f0f0f">
 <title>Repasos EBAU · Coco Sapiens</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+<meta property="og:title" content="Repasos EBAU · Coco Sapiens">
+<meta property="og:description" content="Apúntate a los repasos de selectividad. Rellena tu formulario y te organizamos las clases.">
+<meta property="og:image" content="https://repasos-ebau.dsm11061986.workers.dev/og-image.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://repasos-ebau.dsm11061986.workers.dev/og-image.png">
+<link rel="icon" type="image/svg+xml" href="bombilla-encajado.svg">
+<link rel="apple-touch-icon" href="bombilla-encajado.svg">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#0f0f0f;--card:#1a1a1a;--card2:#242424;--brd:#333;--t:#f0ece4;--t2:#a09888;--t3:#665e52;--gold:#d4a853;--gold2:#f5e6c8;--red:#ef4444;--grn:#22c55e;--warn:#f59e0b}
@@ -55,9 +65,24 @@ input,select,textarea,button{font-family:'Outfit',sans-serif}
 .radio-card{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;border:2px solid var(--brd);background:var(--card);cursor:pointer;transition:all .15s}
 .radio-card.sel{border-color:var(--gold);background:rgba(212,168,83,.08)}
 .radio-card input{accent-color:var(--gold);width:18px;height:18px;flex-shrink:0}
+body.light{--bg:#f8f6f2;--card:#ffffff;--card2:#f0ede8;--brd:#e0d8cc;--t:#1a1510;--t2:#6b5e50;--t3:#a09888;--gold:#b8862e;--gold2:#7a5a1e}
+body.light .ov{background:rgba(248,246,242,.85)}
+body.light .btn{background:linear-gradient(135deg,#b8862e,#9a7025);color:#fff}
+body.light .toast{background:#b8862e;color:#fff}
+body.light .pin-key:active{background:#b8862e;color:#fff}
+body.light .tab.on{background:#b8862e;color:#fff}
+.theme-toggle{position:fixed;top:12px;right:12px;z-index:9999;width:40px;height:40px;border-radius:50%;border:1px solid var(--brd);background:var(--card);color:var(--t2);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:all .2s}
+.theme-toggle:hover{border-color:var(--gold);color:var(--gold)}
+@media print{
+  #theme-toggle,.theme-toggle,.tabs,[data-at],#adm-back,.btn-s,button:not(.btn){display:none!important}
+  body{background:#fff!important;--bg:#fff;--card:#f8f8f8;--card2:#efefef;--t:#111;--t2:#444;--t3:#777;--brd:#ccc;--gold:#a0722a;--gold2:#7a5a1e}
+  #listado-print{display:block!important;padding:0!important}
+  .c{max-width:100%!important;padding:0 8px!important}
+}
 </style>
 </head>
 <body>
+<button class="theme-toggle" id="theme-toggle" title="Cambiar tema">🌙</button>
 <div id="app"></div>
 <div id="ov" class="ov" style="display:none"><div class="spin"></div><div id="ov-msg" style="color:var(--t2);font-size:14px">Cargando...</div></div>
 <script>
@@ -87,6 +112,10 @@ let ADMIN=false;
 let AD={alumnos:[],clases:[],config:{}};
 let AT='alumnos',ADATE=DT[0],ASTU='',ANEW=false,ANC={sid:'fisica',topic:'',date:'',hour:16,room:'fondo',selStudents:[]},ASRCH='',AEXP={};
 let AORG_FAILURES=[];
+// ═══ THEME ═══
+(function(){const t=localStorage.getItem('ebau_theme');if(t==='light')document.body.classList.add('light');updateThemeBtn()})();
+function updateThemeBtn(){const b=document.getElementById('theme-toggle');if(b)b.textContent=document.body.classList.contains('light')?'☀️':'🌙'}
+function toggleTheme(){document.body.classList.toggle('light');localStorage.setItem('ebau_theme',document.body.classList.contains('light')?'light':'dark');updateThemeBtn()}
 // Registro
 let REG={step:'datos',nombre:'',apellidos:'',telefono:'',centro:'',esExterno:false,prefConcentrar:false,pin:'',pinBuf:'',pinBuf2:'',pinPhase:1};
 // Login
@@ -102,6 +131,7 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function tarifa(n){return n>=4?10:n>=3?13:15}
 function tarifaExt(n){return tarifa(n)+5}
 function fmtDur(d){const h=Math.floor(d);const m=Math.round((d-h)*60);return h+'h'+(m?m+'min':'')}
+function fmtHoraMin(h){const hr=Math.floor(h);const mn=Math.round((h-hr)*60);return hr+':'+(mn<10?'0':'')+mn}
 function fd(d){const x=new Date(d+'T12:00:00');return x.getDate()+'/'+(x.getMonth()+1)}
 function fl(d){const x=new Date(d+'T12:00:00');return DN[x.getDay()]+' '+x.getDate()+'/'+(x.getMonth()+1)}
 function timeToH(s){if(!s)return 8;const p=s.split(':');return parseInt(p[0])+(parseInt(p[1]||0)/60)}
@@ -129,16 +159,19 @@ function renderV(){
 }
 
 // ═══ SPLASH ═══
-function splashH(){return`<div class="c" style="min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center"><div class="fu">
-<div style="font-size:60px;margin-bottom:14px">🎓</div>
-<h1 style="font-family:'Playfair Display',serif;font-size:32px;color:var(--gold2);line-height:1.1;margin-bottom:6px">Repasos EBAU</h1>
-<div style="color:var(--t2);font-size:12px;letter-spacing:3px;text-transform:uppercase;margin-bottom:48px">Academia Coco Sapiens · 2026</div>
-<button id="go-new" style="width:100%;padding:20px;border-radius:16px;border:1px solid var(--gold);background:rgba(212,168,83,.1);color:var(--t);font-size:17px;font-weight:600;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;gap:14px;font-family:inherit;text-align:left">
-<span style="font-size:28px">📝</span><div><div style="color:var(--gold2)">Soy alumno/a nuevo</div><div style="font-size:12px;font-weight:400;color:var(--t2);margin-top:2px">Registrarme y pedir mis repasos</div></div></button>
-<button id="go-login" style="width:100%;padding:20px;border-radius:16px;border:1px solid var(--brd);background:var(--card);color:var(--t);font-size:17px;font-weight:600;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;gap:14px;font-family:inherit;text-align:left">
-<span style="font-size:28px">👤</span><div><div>Ya tengo cuenta</div><div style="font-size:12px;font-weight:400;color:var(--t2);margin-top:2px">Ver mis clases y petición</div></div></button>
-<button id="go-adm" style="width:100%;padding:20px;border-radius:16px;border:1px solid var(--brd);background:var(--card2);color:var(--t);font-size:17px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:14px;font-family:inherit;text-align:left">
-<span style="font-size:28px">🔒</span><div><div style="color:var(--t3)">Administración</div><div style="font-size:12px;font-weight:400;color:var(--t3);margin-top:2px">David & Lupe</div></div></button>
+function splashH(){return`<div class="c" style="position:relative;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden">
+<div style="position:absolute;top:0;left:0;right:0;height:48%;overflow:hidden;z-index:0;pointer-events:none"><img src="bombilla-encajado.svg" alt="" aria-hidden="true" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:100%;height:auto;opacity:0.25"></div>
+<div style="position:relative;z-index:1;width:100%;max-width:420px;padding:24px 16px;box-sizing:border-box" class="fu">
+<img src="logo.svg" alt="Academia Coco Sapiens" style="width:100%;max-width:300px;height:auto;margin:0 auto 12px;display:block;filter:drop-shadow(0 0 14px rgba(212,168,83,.25))">
+<div style="font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:4px">REPASOS EBAU</div>
+<div style="font-family:'Montserrat',sans-serif;font-size:22px;font-weight:900;color:var(--gold2);letter-spacing:.5px;margin-bottom:4px">2026</div>
+<div style="color:var(--t3);font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:32px">David · Lupe</div>
+<button id="go-new" style="width:100%;padding:18px;border-radius:16px;border:1px solid var(--gold);background:rgba(212,168,83,.1);color:var(--t);font-size:16px;font-weight:600;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;gap:14px;font-family:inherit;text-align:left">
+<span style="font-size:26px">📝</span><div><div style="color:var(--gold2)">Soy alumno/a nuevo</div><div style="font-size:12px;font-weight:400;color:var(--t2);margin-top:2px">Registrarme y pedir mis repasos</div></div></button>
+<button id="go-login" style="width:100%;padding:18px;border-radius:16px;border:1px solid var(--brd);background:var(--card);color:var(--t);font-size:16px;font-weight:600;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;gap:14px;font-family:inherit;text-align:left">
+<span style="font-size:26px">👤</span><div><div>Ya tengo cuenta</div><div style="font-size:12px;font-weight:400;color:var(--t2);margin-top:2px">Ver mis clases y petición</div></div></button>
+<button id="go-adm" style="width:100%;padding:18px;border-radius:16px;border:1px solid var(--brd);background:var(--card2);color:var(--t);font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:14px;font-family:inherit;text-align:left">
+<span style="font-size:26px">🔒</span><div><div style="color:var(--t3)">Administración</div><div style="font-size:12px;font-weight:400;color:var(--t3);margin-top:2px">David & Lupe</div></div></button>
 </div></div>`}
 
 // ═══ REGISTRO ═══
@@ -562,6 +595,7 @@ function adminH(){
   let c='';
   if(AT==='alumnos')c=admAlumnos();
   else if(AT==='horarios')c=admHorarios();
+  else if(AT==='listado')c=admListado();
   else if(AT==='config')c=admConfig();
   else if(AT==='enviar')c=admEnviar();
   return`<div style="min-height:100dvh">
@@ -573,6 +607,7 @@ function adminH(){
 <div class="c" style="padding:0"><div class="tabs">
 <button class="tab ${AT==='alumnos'?'on':''}" data-at="alumnos">👥 Alumnos</button>
 <button class="tab ${AT==='horarios'?'on':''}" data-at="horarios">📅 Horarios</button>
+<button class="tab ${AT==='listado'?'on':''}" data-at="listado">📋 Lista</button>
 <button class="tab ${AT==='config'?'on':''}" data-at="config">⚙️ Config</button>
 <button class="tab ${AT==='enviar'?'on':''}" data-at="enviar">📣 Enviar</button>
 </div></div></div>
@@ -707,6 +742,31 @@ ${(()=>{
 </div></div>`;
 }).join(''):`<div style="text-align:center;padding:20px;color:var(--t3);font-size:12px">Sin clases este día</div>`}
 </div></div>`}
+
+function admListado(){
+  let h=`<div class="fu" id="listado-print"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h2 style="font-family:'Playfair Display',serif;font-size:17px;color:var(--gold2)">Listado por materia</h2><button onclick="window.print()" class="btn btn-s btn-o">🖨️ Imprimir PDF</button></div>`;
+  SJ.forEach(sub=>{
+    const subStudents=AD.alumnos.filter(a=>(a.peticiones||[]).some(p=>p.asignatura_id===sub.id));
+    if(!subStudents.length)return;
+    h+=`<div style="margin-bottom:20px"><div style="background:${sub.bg};border-radius:10px;padding:10px 14px;margin-bottom:8px;border-left:3px solid ${sub.a}"><div style="font-size:14px;font-weight:700;color:${sub.a}">${sub.e} ${sub.n} <span style="font-size:11px;font-weight:400;color:var(--t2)">· Prof. ${sub.t} · ${subStudents.length} alumnos</span></div></div>`;
+    (TP[sub.id]||[]).forEach(tp=>{
+      const stuConTema=AD.alumnos.filter(a=>{const p=(a.peticiones||[]).find(x=>x.asignatura_id===sub.id);return p&&(p.temas||[]).some(t=>(typeof t==='string'?t:t.name)===tp.name)});
+      if(!stuConTema.length)return;
+      const clasesDelTema=AD.clases.filter(c=>c.asignatura_id===sub.id&&c.tema===tp.name&&(c.inscripciones||[]).length>=2);
+      const isDup=clasesDelTema.length>1;
+      const stuSorted=stuConTema.map(a=>{const p=(a.peticiones||[]).find(x=>x.asignatura_id===sub.id);const t=(p?.temas||[]).find(x=>x.name===tp.name);return{...a,_urg:t?.urgent||false,_pri:t?.priority||99}}).sort((a,b)=>(b._urg?1:0)-(a._urg?1:0)||a._pri-b._pri);
+      const pendInfoH=!clasesDelTema.length?`<div style="margin-top:6px"><button data-sub="${sub.id}" data-top="${encodeURIComponent(tp.name)}" class="col-manual-btn" style="width:100%;padding:8px;border-radius:8px;border:1.5px solid ${sub.a}40;background:${sub.bg};color:${sub.a};font-size:11px;cursor:pointer;font-family:inherit;font-weight:600">+ Crear clase para este tema →</button></div>`:'';
+      h+=`<div style="background:var(--card);border-radius:8px;padding:10px;margin-bottom:6px;border:1px solid var(--brd)">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;flex-wrap:wrap;gap:4px">
+<div><div style="font-size:13px;font-weight:700">${tp.name}</div><div style="font-size:10px;color:var(--t3)">⏱ ${fmtDur(tp.dur)}${tp.brk?` + ${tp.brk}min descanso`:''} · ${stuConTema.length} alumno/s</div></div>
+<div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end">${clasesDelTema.length?`<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,.15);color:var(--grn);font-weight:600">${isDup?`✅ x${clasesDelTema.length} clases`:'✅ Asignada'}</span>`:`<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,.12);color:var(--warn);font-weight:600">⏳ Pendiente</span>`}</div></div>
+<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:${clasesDelTema.length?6:0}px">${stuSorted.map(a=>{const inCls=clasesDelTema.some(c=>(c.inscripciones||[]).some(i=>i.alumno_id===a.id));return`<span style="display:inline-flex;align-items:center;gap:2px;padding:3px 8px;border-radius:5px;font-size:10px;background:${inCls?sub.bg:'var(--card2)'};border:1px solid ${inCls?sub.a+'40':'var(--brd)'};color:${inCls?sub.a:'var(--t2)'}">${a._urg?'🔥 ':''}${esc(a.nombre)}${a.es_externo?' (ext)':''}${inCls?' ✓':''}</span>`}).join('')}</div>
+${clasesDelTema.length?`<div style="font-size:10px;color:var(--t3);border-top:1px solid var(--brd);padding-top:4px">${clasesDelTema.map(c=>`📅 ${fl(c.fecha)} ${hToTime(c.hora_inicio)} · ${(c.inscripciones||[]).length} alum.${isDup?' (dup)':''}`).join(' · ')}</div>`:''}${pendInfoH}</div>`;
+    });
+    h+=`</div>`;
+  });
+  h+=`</div>`;return h;
+}
 
 function admConfig(){
   const edAct=AD.config.edicion_activa!=='false';
@@ -1011,7 +1071,7 @@ W.ncTop=function(val){
   if(val&&ANC.date){
     const tInfo=(TP[ANC.sid]||[]).find(t=>t.name===val);
     const newDur=tInfo?.dur||2;
-    const stuPed=AD.alumnos.filter(a=>(a.peticiones||[]).some(p=>p.asignatura_id===ANC.sid&&(p.temas||[]).some(t=>t.name===val)));
+    const stuPed=AD.alumnos.filter(a=>(a.peticiones||[]).some(p=>p.asignatura_id===ANC.sid&&(p.temas||[]).some(t=>(typeof t==='string'?t:t.name)===val)));
     stuPed.forEach(a=>{
       const ped=a.peticiones.find(p=>p.asignatura_id===ANC.sid);
       const inThis=AD.clases.some(c=>c.asignatura_id===ANC.sid&&c.tema===val&&(c.inscripciones||[]).some(i=>i.alumno_id===a.id));
@@ -1034,7 +1094,7 @@ W.ncCheck=function(){
   const sub=SJ.find(s=>s.id===ANC.sid);
   const tInfo=(TP[ANC.sid]||[]).find(t=>t.name===ANC.topic);
   const newDur=tInfo?.dur||2;
-  const stuPed=AD.alumnos.filter(a=>(a.peticiones||[]).some(p=>p.asignatura_id===ANC.sid&&(p.temas||[]).some(t=>t.name===ANC.topic)));
+  const stuPed=AD.alumnos.filter(a=>(a.peticiones||[]).some(p=>p.asignatura_id===ANC.sid&&(p.temas||[]).some(t=>(typeof t==='string'?t:t.name)===ANC.topic)));
   const CL={skip:'podría venir',impossible:'IMPOSIBLE faltar',depends:'depende'};
   // Evaluate each student
   function stuStatus(a){
@@ -1200,6 +1260,7 @@ function bind(){
   document.getElementById('l-apellidos')?.addEventListener('input',function(){LG.apellidos=this.value;document.getElementById('next').disabled=!(LG.nombre.trim()&&LG.apellidos.trim())});
 
   // Student home
+  document.getElementById('theme-toggle')?.addEventListener('click',toggleTheme);
   document.getElementById('btn-logout')?.addEventListener('click',()=>{ALUMNO=null;ALUMNO_CLASES=[];go('splash')});
   document.getElementById('btn-edit')?.addEventListener('click',()=>{go('stu-edit')});
   document.getElementById('edit-subs')?.addEventListener('click',()=>W.editSubs());
@@ -1223,6 +1284,12 @@ function bind(){
 
   // Admin tabs
   document.querySelectorAll('[data-at]').forEach(t=>t.addEventListener('click',()=>{AT=t.dataset.at;AEXP={};R()}));
+  // Listado → crear clase
+  document.querySelectorAll('.col-manual-btn').forEach(b=>b.addEventListener('click',()=>{
+    const sid=b.dataset.sub;const top=decodeURIComponent(b.dataset.top);
+    ANC.sid=sid;ANC.topic=top;ANC.selStudents=[];AT='horarios';ANEW=true;R();
+    setTimeout(()=>W.ncTop(top),100);
+  }));
 
   // Admin search
   document.getElementById('s-search')?.addEventListener('input',function(){ASRCH=this.value;R()});
