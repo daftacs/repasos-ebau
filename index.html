@@ -112,6 +112,8 @@ let ADMIN=false;
 let AD={alumnos:[],clases:[],config:{}};
 let AT='alumnos',ADATE=DT[0],ASTU='',ANEW=false,ANC={sid:'fisica',topic:'',date:'',hour:16,room:'fondo',selStudents:[]},ASRCH='',AEXP={};
 let AORG_FAILURES=[];
+let AEDIT=false,AMSG_TYPE='simple',AEXP_CLS={};
+let STU_HORARIOS_VIS=false;
 // ═══ THEME ═══
 (function(){const t=localStorage.getItem('ebau_theme');if(t==='light')document.body.classList.add('light');updateThemeBtn()})();
 function updateThemeBtn(){const b=document.getElementById('theme-toggle');if(b)b.textContent=document.body.classList.contains('light')?'☀️':'🌙'}
@@ -518,8 +520,8 @@ ${ALUMNO.puede_editar?`<button id="btn-edit" class="btn btn-o" style="margin-top
 </div>`:`<div style="background:var(--card);border-radius:14px;padding:20px;border:1px solid var(--brd);margin-bottom:12px;text-align:center;color:var(--t2);font-size:13px">No hay petición registrada</div>`}
 
 <div style="background:var(--card);border-radius:14px;padding:16px;border:1px solid var(--brd)">
-<div style="font-weight:700;font-size:15px;margin-bottom:12px;color:var(--gold2)">📅 Mis clases asignadas</div>
-${ALUMNO_CLASES.length?stuClasesH():`<div style="text-align:center;color:var(--t3);font-size:13px;padding:12px 0">Todavía no tienes clases asignadas.<br><span style="font-size:11px">Te avisaremos cuando estén listas.</span></div>`}
+<div style="font-weight:700;font-size:15px;margin-bottom:12px;color:var(--gold2)">${STU_HORARIOS_VIS?'📅 Tu horario de clases':'📅 Mis clases asignadas'}</div>
+${ALUMNO_CLASES.length?(STU_HORARIOS_VIS?stuHorarioH():stuClasesH()):`<div style="text-align:center;color:var(--t3);font-size:13px;padding:12px 0">Todavía no tienes clases asignadas.<br><span style="font-size:11px">Te avisaremos cuando estén listas.</span></div>`}
 </div>
 </div></div>`}
 
@@ -576,6 +578,54 @@ function stuClasesH(){
     h+=`</div>`;
   });
   h+=`<div style="border-top:1px solid var(--brd);padding-top:10px;text-align:right;font-weight:700;color:var(--gold2)">Total estimado: ${total}€</div>`;
+  return h;
+}
+
+function stuHorarioH(){
+  if(!ALUMNO_CLASES.length)return`<div style="text-align:center;color:var(--t3);font-size:13px;padding:12px 0">Todavía no tienes clases asignadas.</div>`;
+  const sorted=[...ALUMNO_CLASES].sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.hora_inicio-b.hora_inicio);
+  // Agrupar por semana ISO
+  const weeks=[];
+  sorted.forEach(c=>{
+    const x=new Date(c.fecha+'T12:00:00');
+    const wNum=Math.ceil((x-new Date(x.getFullYear(),0,1))/(7*86400000));
+    let wk=weeks.find(w=>w.wNum===wNum);
+    if(!wk){wk={wNum,clases:[]};weeks.push(wk);}
+    wk.clases.push(c);
+  });
+  let h='';
+  weeks.forEach(w=>{
+    const byDate={};
+    w.clases.forEach(c=>{if(!byDate[c.fecha])byDate[c.fecha]=[];byDate[c.fecha].push(c)});
+    const dates=Object.keys(byDate).sort();
+    const d1=new Date(dates[0]+'T12:00:00');
+    const d2=new Date(dates[dates.length-1]+'T12:00:00');
+    h+=`<div style="margin-bottom:16px">
+<div style="font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1px;padding:6px 10px;background:rgba(212,168,83,.08);border-radius:8px;margin-bottom:8px;border-left:3px solid var(--gold)">
+📅 Semana del ${d1.getDate()}/${d1.getMonth()+1}${d2!==d1?' al '+d2.getDate()+'/'+(d2.getMonth()+1):''}</div>`;
+    dates.forEach(dt=>{
+      h+=`<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--t2);margin-bottom:5px;padding-left:4px">${fl(dt)}</div>`;
+      byDate[dt].forEach(c=>{
+        const sub=SJ.find(s=>s.id===c.asignatura_id);
+        const insc=c.inscripciones||[];const nStu=insc.length;
+        const myInsc=insc.find(i=>i.alumno_id===ALUMNO.id);
+        const ph=myInsc?myInsc.precio_hora:(ALUMNO.es_externo?tarifaExt(nStu):tarifa(nStu));
+        h+=`<div style="padding:10px 12px;border-radius:10px;background:${sub?.bg||'var(--card2)'};border:1px solid ${sub?.a||'var(--brd)'}20;margin-bottom:5px;display:flex;align-items:center;gap:10px">
+<div style="font-size:24px;flex-shrink:0">${sub?.e||'📚'}</div>
+<div style="flex:1;min-width:0">
+<div style="font-weight:700;font-size:13px;color:${sub?.a||'var(--t)'};margin-bottom:2px">${esc(c.tema)}</div>
+<div style="font-size:11px;color:var(--t2)">${hToTime(c.hora_inicio)} · ${fmtDur(c.duracion_horas||2)}</div>
+</div>
+<div style="text-align:right;flex-shrink:0">
+<div style="font-size:11px;font-weight:700;color:var(--gold)">${ph}€/h</div>
+<div style="font-size:10px;color:var(--t3)">${nStu} alum.</div>
+</div>
+</div>`;
+      });
+      h+=`</div>`;
+    });
+    h+=`</div>`;
+  });
   return h;
 }
 
@@ -663,32 +713,31 @@ ${AORG_FAILURES.map(f=>`<div style="padding:6px 0;border-bottom:1px solid rgba(2
 </div>`).join('')}
 </div>`:'';
   return`<div class="fu">
-<div style="margin-bottom:12px">
+<div style="margin-bottom:10px">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
 <h2 style="font-family:'Playfair Display',serif;font-size:17px;color:var(--gold2)">Horarios (${AD.clases.length})</h2>
-<div style="display:flex;gap:4px;flex-wrap:wrap">
+<button class="btn btn-s ${AEDIT?'':'btn-o'}" onclick="W.togEditMode()">${AEDIT?'✅ Editando':'✏️ Editar'}</button>
+</div>
+${AEDIT?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
 <button class="btn btn-s btn-o" onclick="W.autoOrg()">🤖 Auto-organizar</button>
 <button class="btn btn-s" onclick="W.togNew()">+ Nueva clase</button>
-</div></div>
-<button onclick="W.delAll()" style="width:100%;padding:14px;border-radius:12px;border:2px solid rgba(239,68,68,.4);background:rgba(239,68,68,.06);color:var(--red);font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">🗑 LIENZO EN BLANCO — Borrar toda la organización</button>
+</div>
+<button onclick="W.delAll()" style="width:100%;padding:12px;border-radius:12px;border:2px solid rgba(239,68,68,.4);background:rgba(239,68,68,.06);color:var(--red);font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px">🗑 LIENZO EN BLANCO — Borrar toda la organización</button>`:''}
 </div>
 ${failHtml}
-${ANEW?`<div style="background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;border:1px solid rgba(212,168,83,.35)">
+${AEDIT&&ANEW?`<div style="background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;border:1px solid rgba(212,168,83,.35)">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
 <div style="font-size:13px;font-weight:700;color:var(--gold)">+ NUEVA CLASE / DESDOBLE</div>
 <button onclick="W.togNew()" style="background:none;border:none;color:var(--t2);cursor:pointer;font-size:18px;padding:0 2px;font-family:inherit">✕</button>
 </div>
-
 <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">ASIGNATURA</div>
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px">
 ${SJ.map(s=>{const on=ANC.sid===s.id;return`<button onclick="W.ncSub('${s.id}')" style="padding:10px 4px;border-radius:10px;border:2px solid ${on?s.a:'var(--brd)'};background:${on?s.bg:'var(--card2)'};cursor:pointer;font-family:inherit;text-align:center;transition:all .15s">
 <div style="font-size:22px;margin-bottom:3px">${s.e}</div>
 <div style="font-size:9px;font-weight:${on?700:400};color:${on?s.a:'var(--t3)'};line-height:1.2">${s.n}</div></button>`;}).join('')}
 </div>
-
 <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">TEMA</div>
 <select class="inp" id="nc-top" style="font-size:13px;margin-bottom:12px"><option value="">Selecciona un tema...</option>${(TP[ANC.sid]||[]).map(t=>`<option value="${t.name}" ${ANC.topic===t.name?'selected':''}>${t.name} · ${fmtDur(t.dur)}</option>`).join('')}</select>
-
 <div style="display:flex;gap:8px;margin-bottom:12px">
 <div style="flex:2"><div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">FECHA</div>
 <select class="inp" id="nc-dt" style="font-size:13px"><option value="">Elige fecha...</option>${DT.map(d=>`<option value="${d}" ${ANC.date===d?'selected':''}>${fl(d)}</option>`).join('')}</select></div>
@@ -697,51 +746,93 @@ ${SJ.map(s=>{const on=ANC.sid===s.id;return`<button onclick="W.ncSub('${s.id}')"
 <div style="flex:1"><div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">AULA</div>
 <select class="inp" id="nc-rm" style="font-size:13px">${RM.map(r=>`<option value="${r.id}" ${ANC.room===r.id?'selected':''}>${r.n}</option>`).join('')}</select></div>
 </div>
-
 <div id="nc-stu">${ANC.topic&&ANC.date?'':'<div style="font-size:12px;color:var(--t3);padding:8px 0;text-align:center">Selecciona tema y fecha para ver alumnos</div>'}</div>
-
 ${(()=>{const n=ANC.selStudents.length;const tInfo=(TP[ANC.sid]||[]).find(t=>t.name===ANC.topic);const rate=n>=2?tarifa(n):null;const total=rate&&tInfo?Math.round(rate*tInfo.dur*100)/100:null;return`<button onclick="W.addCls()" class="btn-create-cls" style="width:100%;padding:14px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;background:${n>=1?'linear-gradient(135deg,var(--gold),#c4943d)':'var(--card2)'};color:${n>=1?'#000':'var(--t3)'};${n<1?'pointer-events:none':''}">
 ${n>=1?`✅ Crear clase · ${n} alumno${n>1?'s':''} · ${rate?rate+'€/h':'(min 2)'}${total?' · '+total+'€/alumno':''}`:n===0?'Selecciona al menos 1 alumno':'Elige tema y fecha primero'}</button>`})()}
 </div>`:''}
-
-<div style="display:flex;gap:3px;overflow-x:auto;padding-bottom:4px;margin-bottom:8px">${DT.map(d=>{const n=AD.clases.filter(c=>c.fecha===d).length;return`<button onclick="W.selD('${d}')" style="padding:5px 6px;border-radius:6px;border:none;cursor:pointer;font-family:inherit;background:${d===ADATE?'var(--gold)':'var(--card)'};color:${d===ADATE?'#000':'var(--t3)'};font-size:9px;font-weight:${d===ADATE?700:400};white-space:nowrap;min-width:38px">${fd(d)}${n?`<div style="font-size:7px">${n}cl</div>`:''}</button>`;}).join('')}</div>
-
-<div style="background:var(--card);border-radius:10px;padding:10px;border:1px solid var(--brd)">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+<div style="display:flex;gap:3px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px">${DT.map(d=>{const n=AD.clases.filter(c=>c.fecha===d).length;return`<button onclick="W.selD('${d}')" style="padding:5px 6px;border-radius:6px;border:none;cursor:pointer;font-family:inherit;background:${d===ADATE?'var(--gold)':'var(--card)'};color:${d===ADATE?'#000':'var(--t3)'};font-size:9px;font-weight:${d===ADATE?700:400};white-space:nowrap;min-width:38px">${fd(d)}${n?`<div style="font-size:7px">${n}cl</div>`:''}</button>`;}).join('')}</div>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
 <div style="font-weight:600;font-size:13px;color:var(--gold2)">📅 ${fl(ADATE)} <span style="font-size:10px;color:var(--t3)">${dc.length} clase(s)</span></div>
-${dc.length?`<button onclick="W.delDay('${ADATE}')" style="padding:4px 8px;border-radius:6px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:var(--red);font-size:10px;cursor:pointer;font-family:inherit">🗑 Borrar día</button>`:''}
+${AEDIT&&dc.length?`<button onclick="W.delDay('${ADATE}')" style="padding:4px 8px;border-radius:6px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:var(--red);font-size:10px;cursor:pointer;font-family:inherit">🗑 Borrar día</button>`:''}
 </div>
-${dc.length?dc.map(c=>{
-  const sub=SJ.find(s=>s.id===c.asignatura_id);
-  const rm=RM.find(r=>r.id===c.aula);
-  const insc=c.inscripciones||[];
-  const nStu=insc.length;
-  const rate=tarifa(nStu);
-  const tInfo=(TP[c.asignatura_id]||[]).find(t=>t.name===c.tema);
-  return`<div style="padding:10px;border-radius:8px;margin-bottom:6px;background:${sub?.bg||'var(--card2)'};border:1px solid ${sub?.a||'var(--brd)'}18">
-<div style="display:flex;justify-content:space-between;align-items:flex-start">
-<div style="flex:1">
-<div style="font-size:12px;font-weight:700;color:${sub?.a||'var(--t)'}">${hToTime(c.hora_inicio)} · ${sub?.e||''} ${sub?.n||c.asignatura_id}</div>
-<div style="font-size:13px;font-weight:500;margin-top:2px">${c.tema}${tInfo?` <span style="font-size:10px;color:var(--t3)">${fmtDur(tInfo.dur)}</span>`:''}</div>
-<div style="font-size:10px;color:var(--t3);margin-top:1px">${rm?.n||c.aula} · ${nStu} alum.${nStu>=2?' · <span style="color:var(--gold)">'+rate+'€/h · '+(Math.round(rate*(tInfo?.dur||2)*100)/100)+'€/alumno</span>':' · <span style="color:var(--warn)">(min 2 para calcular precio)</span>'}</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+${_horColH(ADATE,'David',['fisica','quimica'])}
+${_horColH(ADATE,'Lupe',['matesII','matesCCSS'])}
 </div>
-<button onclick="W.delCls('${c.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px 6px">✕</button>
+</div>`;
+}
+
+function _horColH(dt,teacher,subIds){
+  const cls=AD.clases.filter(c=>c.fecha===dt&&subIds.includes(c.asignatura_id)).sort((a,b)=>a.hora_inicio-b.hora_inicio);
+  const morning=cls.filter(c=>c.hora_inicio<14);
+  const afternoon=cls.filter(c=>c.hora_inicio>=14);
+  const icons=subIds.map(id=>{const s=SJ.find(x=>x.id===id);return s?.e||''}).join('');
+  return`<div style="background:var(--card);border-radius:10px;border:1px solid var(--brd);overflow:hidden">
+<div style="padding:7px 10px;background:var(--card2);border-bottom:1px solid var(--brd)">
+<div style="font-size:11px;font-weight:700;color:var(--gold2)">${icons} ${teacher}</div>
 </div>
-<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:10px">
-${(()=>{
-  // Inscribed first, then ANY student with a petition for this subject (not yet inscribed)
-  const inscribedIds=new Set(insc.map(i=>i.alumno_id));
-  const candidatos=AD.alumnos.filter(a=>!inscribedIds.has(a.id)&&(a.peticiones||[]).some(p=>p.asignatura_id===c.asignatura_id));
-  const allChip=[...insc.map(i=>({a:AD.alumnos.find(x=>x.id===i.alumno_id),inI:i})),...candidatos.map(a=>({a,inI:null}))].filter(x=>x.a);
-  return allChip.map(({a,inI})=>{
-    const pedTopics=(a.peticiones||[]).find(p=>p.asignatura_id===c.asignatura_id)?.temas||[];
-    const pidioEste=pedTopics.some(t=>t.name===c.tema);
-    return`<button onclick="W.togCS('${c.id}','${a.id}')" style="padding:5px 10px;border-radius:8px;border:1.5px solid ${inI?sub?.a||'var(--gold)':pidioEste?'var(--brd)':'rgba(255,255,255,.08)'};font-size:11px;cursor:pointer;background:${inI?(sub?.bg||'rgba(212,168,83,.1)'):'var(--card2)'};color:${inI?sub?.a||'var(--gold)':pidioEste?'var(--t2)':'var(--t3)'};font-family:inherit;font-weight:${inI?600:400};opacity:${inI||pidioEste?1:.6}" title="${pidioEste?'Pidió este tema':'No pidió este tema'}">${inI?'✓ ':''} ${esc(a.nombre)}${a.es_externo?'<span style="font-size:8px;opacity:.7"> ext</span>':''}</button>`;
-  }).join('');
-})()}
+<div style="padding:5px">
+<div style="font-size:8px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;padding:1px 2px">☀️ MAÑANA</div>
+${_horSecH(morning,8,14)}
+<div style="font-size:8px;font-weight:700;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin:5px 0 3px;padding:1px 2px">🌙 TARDE</div>
+${_horSecH(afternoon,14,22)}
 </div></div>`;
-}).join(''):`<div style="text-align:center;padding:20px;color:var(--t3);font-size:12px">Sin clases este día</div>`}
-</div></div>`}
+}
+
+function _horSecH(cls,startH,endH){
+  let h='',cursor=startH;
+  for(const c of cls){
+    const cS=c.hora_inicio,dur=c.duracion_horas||2,cE=cS+dur;
+    if(cS>cursor)h+=_freeH(cursor,Math.min(cS,endH));
+    h+=_clsCardH(c);
+    cursor=Math.max(cursor,cE);
+  }
+  if(cursor<endH)h+=_freeH(cursor,endH);
+  if(!h)h=_freeH(startH,endH);
+  return h;
+}
+
+function _freeH(from,to){
+  if(to<=from)return'';
+  return`<div style="padding:3px 5px;border-radius:5px;border:1px dashed var(--brd);margin-bottom:2px;opacity:.45">
+<div style="font-size:8px;color:var(--t3)">${hToTime(from)}–${hToTime(to)} libre</div>
+</div>`;
+}
+
+function _clsCardH(c){
+  const sub=SJ.find(s=>s.id===c.asignatura_id);
+  const insc=c.inscripciones||[];const nStu=insc.length;
+  const rate=tarifa(nStu);const dur=c.duracion_horas||2;
+  const cost=nStu>=2?Math.round(rate*dur*100)/100:null;
+  const exp=AEXP_CLS[c.id];const rm=RM.find(r=>r.id===c.aula);
+  let h=`<div style="border-radius:7px;border:1px solid ${sub?.a||'var(--gold)'}30;background:${sub?.bg||'var(--card2)'};margin-bottom:2px;overflow:hidden">
+<button onclick="W.togExpCls('${c.id}')" style="width:100%;display:flex;justify-content:space-between;align-items:flex-start;padding:5px 6px;background:transparent;border:none;cursor:pointer;font-family:inherit;text-align:left;gap:3px">
+<div style="flex:1;min-width:0">
+<div style="font-size:9px;font-weight:700;color:${sub?.a||'var(--gold)'}">${hToTime(c.hora_inicio)} ${sub?.e||''}</div>
+<div style="font-size:10px;font-weight:600;color:var(--t);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.tema)}</div>
+</div>
+<div style="text-align:right;flex-shrink:0">
+<div style="font-size:9px;font-weight:700;color:${nStu>=2?'var(--grn)':'var(--warn)'}">${nStu}👤</div>
+<div style="font-size:8px;color:var(--t3)">${exp?'▲':'▼'}</div>
+</div>
+</button>`;
+  if(exp){
+    h+=`<div style="padding:0 6px 6px;border-top:1px solid ${sub?.a||'var(--brd)'}20">
+<div style="font-size:8px;color:var(--t3);margin-bottom:3px">${fmtDur(dur)} · ${rm?.n||c.aula}</div>
+<div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:3px">
+${insc.map(i=>{const a=AD.alumnos.find(x=>x.id===i.alumno_id);return a?`<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:${sub?.a||'var(--gold)'}20;color:${sub?.a||'var(--gold)'}">${esc(a.nombre)}</span>`:''}).join('')}
+</div>
+${nStu>=2?`<div style="font-size:8px;color:var(--gold);font-weight:700">${rate}€/h · ${cost}€/al.</div>`:`<div style="font-size:8px;color:var(--warn)">Mín 2 alumnos</div>`}
+${AEDIT?`<div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap">
+<button onclick="W.delCls('${c.id}')" style="padding:2px 7px;border-radius:5px;border:none;background:rgba(239,68,68,.12);color:var(--red);font-size:8px;cursor:pointer;font-family:inherit">🗑 Borrar</button>
+${(()=>{const inscribedIds=new Set(insc.map(i=>i.alumno_id));const cands=AD.alumnos.filter(a=>!inscribedIds.has(a.id)&&(a.peticiones||[]).some(p=>p.asignatura_id===c.asignatura_id));return cands.length?`<select onchange="if(this.value)W.togCS('${c.id}',this.value);this.value=''" style="padding:2px 4px;border-radius:5px;border:1px solid var(--brd);background:var(--card);color:var(--t);font-size:8px;font-family:inherit;cursor:pointer"><option value="">+ alumno</option>${cands.map(a=>`<option value="${a.id}">${esc(a.nombre)}</option>`).join('')}</select>`:''})()}
+${insc.map(i=>{const a=AD.alumnos.find(x=>x.id===i.alumno_id);return a?`<button onclick="W.togCS('${c.id}','${a.id}')" style="padding:2px 6px;border-radius:5px;border:1px solid ${sub?.a||'var(--gold)'}40;background:${sub?.bg||'var(--card2)'};color:${sub?.a||'var(--gold)'};font-size:8px;cursor:pointer;font-family:inherit">✕ ${esc(a.nombre)}</button>`:''}).join('')}
+</div>`:''}
+</div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
 
 function admListado(){
   let h=`<div class="fu" id="listado-print"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h2 style="font-family:'Playfair Display',serif;font-size:17px;color:var(--gold2)">Listado por materia</h2><button onclick="window.print()" class="btn btn-s btn-o">🖨️ Imprimir PDF</button></div>`;
@@ -771,6 +862,7 @@ ${clasesDelTema.length?`<div style="font-size:10px;color:var(--t3);border-top:1p
 function admConfig(){
   const edAct=AD.config.edicion_activa!=='false';
   const fLim=AD.config.fecha_limite||'2026-03-26';
+  const horVis=AD.config.horarios_visibles==='true';
   return`<div class="fu"><h2 style="font-family:'Playfair Display',serif;font-size:17px;color:var(--gold2);margin-bottom:14px">Configuración</h2>
 
 <div style="background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--brd);margin-bottom:10px">
@@ -778,6 +870,13 @@ function admConfig(){
 <div><div style="font-weight:600;font-size:14px">Edición global activa</div>
 <div style="font-size:12px;color:var(--t2)">Todos los alumnos pueden editar su petición</div></div>
 <button onclick="W.togEdGlobal(${!edAct})" style="padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;background:${edAct?'rgba(34,197,94,.15)':'rgba(239,68,68,.1)'};color:${edAct?'var(--grn)':'var(--red)'}">${edAct?'✅ ON':'❌ OFF'}</button>
+</div></div>
+
+<div style="background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--brd);margin-bottom:10px">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<div><div style="font-weight:600;font-size:14px">Cronograma visible para alumnos</div>
+<div style="font-size:12px;color:var(--t2)">Los alumnos ven su horario de clases por semanas</div></div>
+<button onclick="W.togHorVis(${!horVis})" style="padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;background:${horVis?'rgba(34,197,94,.15)':'rgba(239,68,68,.1)'};color:${horVis?'var(--grn)':'var(--red)'}">${horVis?'✅ ON':'❌ OFF'}</button>
 </div></div>
 
 <div style="background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--brd);margin-bottom:14px">
@@ -796,6 +895,12 @@ ${AD.alumnos.map(a=>`<div style="display:flex;justify-content:space-between;alig
 
 function admEnviar(){
   return`<div class="fu"><h2 style="font-family:'Playfair Display',serif;font-size:17px;color:var(--gold2);margin-bottom:10px">Comunicar horarios</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px">
+<button onclick="W.setMsgType('simple')" style="padding:12px 8px;border-radius:10px;border:2px solid ${AMSG_TYPE==='simple'?'var(--gold)':'var(--brd)'};background:${AMSG_TYPE==='simple'?'rgba(212,168,83,.1)':'var(--card)'};cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;color:${AMSG_TYPE==='simple'?'var(--gold2)':'var(--t3)'}">
+📅 Solo horarios<div style="font-size:10px;font-weight:400;margin-top:2px;line-height:1.3">Sin importes ni totales</div></button>
+<button onclick="W.setMsgType('full')" style="padding:12px 8px;border-radius:10px;border:2px solid ${AMSG_TYPE==='full'?'var(--gold)':'var(--brd)'};background:${AMSG_TYPE==='full'?'rgba(212,168,83,.1)':'var(--card)'};cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;color:${AMSG_TYPE==='full'?'var(--gold2)':'var(--t3)'}">
+💰 Con tarifas<div style="font-size:10px;font-weight:400;margin-top:2px;line-height:1.3">Desglose completo</div></button>
+</div>
 <select class="inp" id="sd-stu" style="margin-bottom:12px"><option value="">Selecciona alumno...</option>${AD.alumnos.map(a=>`<option value="${a.id}" ${ASTU===a.id?'selected':''}>${esc(a.nombre)} ${esc(a.apellidos)}${a.es_externo?' (EXT)':''}</option>`).join('')}</select>
 <div id="sd-pv"></div></div>`}
 
@@ -804,19 +909,32 @@ function renderSP(){
   const st=AD.alumnos.find(a=>a.id===ASTU);if(!st){el.innerHTML='';return}
   const sc=AD.clases.filter(c=>(c.inscripciones||[]).some(i=>i.alumno_id===ASTU)).sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.hora_inicio-b.hora_inicio);
   if(!sc.length){el.innerHTML=`<div style="color:var(--t3);font-size:12px;text-align:center;padding:12px">Sin clases asignadas aún</div>`;return}
-  let total=0;
-  let m=`🎓 *REPASOS EBAU - Coco Sapiens*\n\nHola ${st.nombre}, tus clases:\n`;
   const bs={};sc.forEach(c=>{const s=SJ.find(x=>x.id===c.asignatura_id);if(!bs[s?.n||c.asignatura_id])bs[s?.n||c.asignatura_id]=[];bs[s?.n||c.asignatura_id].push(c)});
-  Object.entries(bs).forEach(([n,cls])=>{
-    m+=`\n📚 *${n}*\n`;
-    cls.forEach(c=>{
-      const insc=c.inscripciones||[];const nStu=insc.length;
-      const rate=st.es_externo?tarifaExt(nStu):tarifa(nStu);
-      const dur=c.duracion_horas||2;const cost=Math.round(rate*dur*100)/100;total+=cost;
-      m+=`  📅 ${fl(c.fecha)} · ${hToTime(c.hora_inicio)} · ${fmtDur(dur)}\n     ${c.tema} (${nStu} alum. → ${rate}€/h)\n     Importe: ${cost}€\n`;
+  let m='';
+  if(AMSG_TYPE==='simple'){
+    m=`🎓 *REPASOS EBAU - Coco Sapiens*\n\nHola ${st.nombre}, tus clases:\n`;
+    Object.entries(bs).forEach(([n,cls])=>{
+      m+=`\n📚 *${n}*\n`;
+      cls.forEach(c=>{
+        const dur=c.duracion_horas||2;
+        m+=`  📅 ${fl(c.fecha)} · ${hToTime(c.hora_inicio)} · ${fmtDur(dur)}\n     ${c.tema}\n`;
+      });
     });
-  });
-  m+=`\n━━━━━━━━━━━━━━━━━━━━\n💰 *TOTAL: ${total}€*\n\n⚠️ Horarios firmes. ¿Confirmas? *SÍ* 🙏`;
+    m+=`\n⚠️ Horarios firmes. ¿Confirmas? *SÍ* 🙏`;
+  } else {
+    let total=0;
+    m=`🎓 *REPASOS EBAU - Coco Sapiens*\n\nHola ${st.nombre}, tus clases:\n`;
+    Object.entries(bs).forEach(([n,cls])=>{
+      m+=`\n📚 *${n}*\n`;
+      cls.forEach(c=>{
+        const insc=c.inscripciones||[];const nStu=insc.length;
+        const rate=st.es_externo?tarifaExt(nStu):tarifa(nStu);
+        const dur=c.duracion_horas||2;const cost=Math.round(rate*dur*100)/100;total+=cost;
+        m+=`  📅 ${fl(c.fecha)} · ${hToTime(c.hora_inicio)} · ${fmtDur(dur)}\n     ${c.tema} (${nStu} alum. → ${rate}€/h)\n     Importe: ${cost}€\n`;
+      });
+    });
+    m+=`\n━━━━━━━━━━━━━━━━━━━━\n💰 *TOTAL: ${total}€*\n\n⚠️ Horarios firmes. ¿Confirmas? *SÍ* 🙏`;
+  }
   el.innerHTML=`<div style="background:var(--card);border-radius:10px;padding:10px;border:1px solid var(--brd);margin-bottom:8px;max-height:260px;overflow-y:auto">
 <pre style="white-space:pre-wrap;font-size:11px;line-height:1.5;font-family:inherit;color:var(--t2);margin:0">${esc(m)}</pre></div>
 <button class="btn" style="margin-bottom:6px" onclick="copyMsg(${JSON.stringify(m).replace(/</g,'\\u003c')})">📋 COPIAR</button>
@@ -852,6 +970,13 @@ W.evAddR=function(){
   S.eventos[S.evCur].rangos.push({fi,ff,hd,hh});R();
 };
 W.togExp=function(id){AEXP[id]=!AEXP[id];R()};
+W.togExpCls=function(id){AEXP_CLS[id]=!AEXP_CLS[id];R()};
+W.togEditMode=function(){AEDIT=!AEDIT;if(!AEDIT)ANEW=false;R()};
+W.setMsgType=function(t){AMSG_TYPE=t;R();setTimeout(renderSP,50)};
+W.togHorVis=async function(val){
+  await db.from('config').upsert({clave:'horarios_visibles',valor:val?'true':'false'});
+  AD.config.horarios_visibles=val?'true':'false';R();toast(val?'Cronograma visible para alumnos':'Cronograma oculto',val);
+};
 W.togEdit=async function(id,val){
   await db.from('alumnos').update({puede_editar:val}).eq('id',id);
   const a=AD.alumnos.find(x=>x.id===id);if(a)a.puede_editar=val;R();toast(val?'Edición activada':'Edición desactivada',val);
@@ -1485,11 +1610,15 @@ async function doLogin(){
     return;
   }
   ALUMNO=data;
-  // Load classes for this student
-  const {data:clases}=await db.from('clases').select('*, inscripciones(*)').in('id',
-    (await db.from('inscripciones').select('clase_id').eq('alumno_id',ALUMNO.id)).data?.map(i=>i.clase_id)||[]
-  );
+  // Load classes and config for this student
+  const [inscRes,cfgRes]=await Promise.all([
+    db.from('inscripciones').select('clase_id').eq('alumno_id',ALUMNO.id),
+    db.from('config').select('*').eq('clave','horarios_visibles').maybeSingle()
+  ]);
+  const claseIds=inscRes.data?.map(i=>i.clase_id)||[];
+  const {data:clases}=claseIds.length?await db.from('clases').select('*, inscripciones(*)').in('id',claseIds):{data:[]};
   ALUMNO_CLASES=clases||[];
+  STU_HORARIOS_VIS=cfgRes.data?.valor==='true';
   showOv(false);go('stu-home');
 }
 
