@@ -85,13 +85,14 @@ let ALUMNO=null; // alumno logueado {id,nombre,apellidos,...,peticiones:[...]}
 let ALUMNO_CLASES=[]; // clases asignadas con inscripciones
 let ADMIN=false;
 let AD={alumnos:[],clases:[],config:{}};
-let AT='alumnos',ADATE=DT[0],ASTU='',ANEW=false,ANC={sid:'fisica',topic:'',date:'',hour:16,room:'fondo'},ASRCH='',AEXP={};
+let AT='alumnos',ADATE=DT[0],ASTU='',ANEW=false,ANC={sid:'fisica',topic:'',date:'',hour:16,room:'fondo',selStudents:[]},ASRCH='',AEXP={};
+let AORG_FAILURES=[];
 // Registro
 let REG={step:'datos',nombre:'',apellidos:'',telefono:'',centro:'',esExterno:false,prefConcentrar:false,pin:'',pinBuf:'',pinBuf2:'',pinPhase:1};
 // Login
 let LG={nombre:'',apellidos:'',pinBuf:''};
 // Wizard (reuse existing pattern)
-let S={step:0,subs:[],data:{},tabs:{},openDay:{},accepted:false,msg:''};
+let S={step:0,subs:[],data:{},tabs:{},openDay:{},accepted:false,msg:'',evCur:0,eventos:[],editMode:null};
 
 // ═══ HELPERS ═══
 const DN=["dom","lun","mar","mié","jue","vie","sáb"];
@@ -103,6 +104,9 @@ function tarifaExt(n){return tarifa(n)+5}
 function fmtDur(d){const h=Math.floor(d);const m=Math.round((d-h)*60);return h+'h'+(m?m+'min':'')}
 function fd(d){const x=new Date(d+'T12:00:00');return x.getDate()+'/'+(x.getMonth()+1)}
 function fl(d){const x=new Date(d+'T12:00:00');return DN[x.getDay()]+' '+x.getDate()+'/'+(x.getMonth()+1)}
+function timeToH(s){if(!s)return 8;const p=s.split(':');return parseInt(p[0])+(parseInt(p[1]||0)/60)}
+function hToTime(h){const hr=Math.floor(h);const mn=Math.round((h-hr)*60);return hr+':'+(mn<10?'0':'')+mn}
+function overlapsRange(s1,d1,s2,d2){return s1<s2+d2&&s2<s1+d1}
 function isWeekend(d){const x=new Date(d+'T12:00:00').getDay();return x===0||x===6}
 function toast(m,ok){const e=document.createElement('div');e.className='toast';e.textContent=m;if(ok)e.style.background='var(--grn)';document.body.appendChild(e);setTimeout(()=>e.remove(),2800)}
 function showOv(show,msg='Cargando...'){document.getElementById('ov').style.display=show?'flex':'none';document.getElementById('ov-msg').textContent=msg}
@@ -117,6 +121,8 @@ function renderV(){
   if(V==='login')return loginH();
   if(V==='login-pin')return loginPinH();
   if(V==='stu-home')return stuHomeH();
+  if(V==='stu-edit')return stuEditChoiceH();
+  if(V==='fin-disp')return finDispH();
   if(V==='admin-login')return adminLoginH();
   if(V==='admin')return adminH();
   return '';
@@ -202,8 +208,10 @@ ${[1,2,3,4,5,6,7,8,9].map(n=>`<button class="pin-key" data-n="${n}">${n}</button
 // ═══ WIZARD ═══
 function wizardH(){
   const ts=1+S.subs.length;
+  if(S.editMode==='disp')return wEvents(ts);
   if(S.step===0)return wS0(ts);
   if(S.step>=1&&S.step<ts)return wSub(ts);
+  if(S.step===ts)return wEvents(ts);
   if(S.step===999)return finH();
   return '';
 }
@@ -224,10 +232,10 @@ ${on?`<div style="margin-top:6px;font-size:16px;color:${s.a}">✓</div>`:''}</bu
 <div class="ftr"><div class="c"><button class="btn" id="next" ${S.subs.length?'':'disabled'}>SIGUIENTE →</button></div></div>`}
 
 function wSub(ts){
-  const si=S.step-1,sid=S.subs[si],sub=SJ.find(s=>s.id===sid),d=S.data[sid],tab=S.tabs[sid]||'topics',last=S.step===ts-1;
+  const si=S.step-1,sid=S.subs[si],sub=SJ.find(s=>s.id===sid),d=S.data[sid],last=S.step===ts-1;
   const canGo=d.topics.length>0&&d.finalDate;
-  return`<div class="pb"><div style="width:${(S.step+1)*100/(ts+1)}%"></div></div>
-<div class="c"><div class="hdr"><button id="back">← Atrás</button><span>Paso ${S.step+1} de ${ts}</span></div>
+  return`<div class="pb"><div style="width:${(S.step+1)*100/(ts+2)}%"></div></div>
+<div class="c"><div class="hdr"><button id="back">← Atrás</button><span>${sub.e} ${sub.n} · ${si+1}/${S.subs.length}</span></div>
 <div>
 <div style="display:flex;align-items:center;gap:12px;margin:14px 0"><span style="font-size:32px">${sub.e}</span>
 <div><h2 style="font-family:'Playfair Display',serif;font-size:20px;color:${sub.a}">${sub.n}</h2>
@@ -245,13 +253,77 @@ ${d.estimated?`<div style="margin-top:8px"><label style="font-size:12px;color:va
 <input class="inp" id="i-week" placeholder="Ej: Segunda semana de mayo" value="${esc(d.weekHint||'')}" style="border-color:var(--warn)"></div>`:''}
 </div>
 
-<div class="tabs" style="margin-bottom:14px">
-<button class="tab ${tab==='topics'?'on':''}" data-tab="topics" style="${tab==='topics'?'background:'+sub.a:''}">📋 Temas${d.topics.length?' ('+d.topics.length+')':''}</button>
-<button class="tab ${tab==='calendar'?'on':''}" data-tab="calendar" style="${tab==='calendar'?'background:'+sub.a:''}">📅 No puedo${d.blocked.length?' ('+d.blocked.length+')':''}</button>
-</div>
-<div id="tab-c">${tab==='topics'?topH(sid,sub,d):calH(sid,sub,d)}</div>
+<div style="font-size:11px;color:var(--t3);margin-bottom:10px">📋 Selecciona los temas y ordénalos por prioridad</div>
+${topH(sid,sub,d)}
 </div><div style="height:90px"></div></div>
-<div class="ftr"><div class="c"><button class="btn" id="next" ${canGo?'':'disabled'}>${last?'GENERAR RESUMEN →':'SIGUIENTE →'}</button></div></div>`}
+<div class="ftr"><div class="c"><button class="btn" id="next" ${canGo?'':'disabled'}>${last?'MI DISPONIBILIDAD →':'SIGUIENTE →'}</button></div></div>`}
+
+// ═══ EVENTOS ═══
+function mkEventos(){return[
+  {id:'viaje',ico:'✈️',q:'¿Tienes un viaje organizado en familia?',hint:'Consulta con tus padres para asegurarte antes de confirmar.',activo:null,rangos:[],compromiso:''},
+  {id:'bautizo',ico:'👶',q:'¿Tienes algún bautizo previsto?',hint:'Consulta con tus padres para asegurarte.',activo:null,rangos:[],compromiso:''},
+  {id:'comunion',ico:'⛪',q:'¿Tienes alguna comunión prevista?',hint:'Consulta con tus padres para asegurarte.',activo:null,rangos:[],compromiso:''},
+  {id:'cumple',ico:'🎂',q:'¿Tienes algún cumpleaños previsto?',hint:'Consulta con tus amigos y familia para asegurarte.',activo:null,rangos:[],compromiso:''},
+  {id:'graduacion',ico:'🎓',q:'¿Cuándo es tu graduación?',hint:'Recuerda: puede que el día siguiente también lo necesites para recuperarte 😄',activo:null,rangos:[],compromiso:''},
+  {id:'deporte',ico:'⚽',q:'¿Tienes compromisos deportivos competitivos fijados?',hint:'Solo fechas confirmadas con tu entrenador. Si luego hay un partido y ya tienes clase asignada, tendrías que abonarla igualmente.',activo:null,rangos:[],compromiso:''},
+  {id:'otro',ico:'📌',q:'¿Tienes algún otro evento que no hayamos contemplado?',hint:'',activo:null,rangos:[],compromiso:''}
+]}
+function eventoToBlocked(evs){
+  const s=new Set();
+  (evs||[]).filter(e=>e.activo&&e.rangos.length).forEach(e=>{
+    e.rangos.forEach(r=>{
+      const d1=new Date(r.fi+'T12:00:00'),d2=r.ff?new Date(r.ff+'T12:00:00'):d1;
+      for(const d=new Date(d1);d<=d2;d.setDate(d.getDate()+1)){
+        const ds=d.toISOString().split('T')[0];
+        if(DT.includes(ds))for(let h=r.hd;h<r.hh;h++)s.add(ds+'-'+h);
+      }
+    });
+  });
+  return[...s];
+}
+function wEvents(ts){
+  const ev=S.eventos[S.evCur];
+  const isLast=S.evCur===6;
+  const canNext=ev.activo===false||(ev.activo===true&&ev.rangos.length>0&&ev.compromiso);
+  const CL={skip:'Podría no ir al evento y venir al repaso',impossible:'Imposible faltar, no hay forma',depends:'Depende del repaso que caiga'};
+  let h=`<div class="pb"><div style="width:${(ts+1+S.evCur/7)*100/(ts+2)}%"></div></div>
+<div class="c"><div class="hdr"><button id="back">← Atrás</button><span>Tu disponibilidad · ${S.evCur+1}/7</span></div>
+<div class="fu" style="padding-top:12px">
+<div style="display:flex;gap:8px;justify-content:center;margin-bottom:18px">
+${S.eventos.map((e,i)=>`<div style="width:${i===S.evCur?'28px':'10px'};height:10px;border-radius:5px;background:${i===S.evCur?'var(--gold)':e.activo!==null?'rgba(212,168,83,.5)':'var(--brd)'};transition:all .3s"></div>`).join('')}
+</div>
+<div style="text-align:center;margin-bottom:20px">
+<div style="font-size:52px;margin-bottom:10px">${ev.ico}</div>
+<h2 style="font-family:'Playfair Display',serif;font-size:21px;color:var(--gold2);line-height:1.35;margin-bottom:8px">${ev.q}</h2>
+${ev.hint?`<p style="font-size:12px;color:var(--t3);line-height:1.6;margin:0 8px">${ev.hint}</p>`:''}
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+<button onclick="W.evTog(${S.evCur},false)" style="padding:20px 12px;border-radius:14px;border:2px solid ${ev.activo===false?'var(--grn)':'var(--brd)'};background:${ev.activo===false?'rgba(34,197,94,.08)':'var(--card)'};cursor:pointer;font-family:inherit;font-size:16px;font-weight:700;color:${ev.activo===false?'var(--grn)':'var(--t2)'}">✅ NO</button>
+<button onclick="W.evTog(${S.evCur},true)" style="padding:20px 12px;border-radius:14px;border:2px solid ${ev.activo===true?'var(--gold)':'var(--brd)'};background:${ev.activo===true?'rgba(212,168,83,.08)':'var(--card)'};cursor:pointer;font-family:inherit;font-size:16px;font-weight:700;color:${ev.activo===true?'var(--gold)':'var(--t2)'}">📅 SÍ</button>
+</div>`;
+  if(ev.activo===true){
+    h+=`<div style="background:var(--card);border-radius:14px;padding:14px;margin-bottom:14px;border:1px solid var(--brd)">
+<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">📅 Fechas del evento</div>
+${ev.rangos.map((r,j)=>{const d1=new Date(r.fi+'T12:00:00');const d2=r.ff&&r.ff!==r.fi?new Date(r.ff+'T12:00:00'):null;return`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--card2);margin-bottom:6px"><div style="flex:1;font-size:13px;font-weight:600">${d1.getDate()}/${d1.getMonth()+1}${d2?' → '+d2.getDate()+'/'+(d2.getMonth()+1):''} · ${r.hd}h–${r.hh}h</div><button onclick="W.evRmR(${S.evCur},${j})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:20px;padding:4px;line-height:1">✕</button></div>`}).join('')}
+<div style="border:1px dashed var(--brd);border-radius:10px;padding:10px;margin-top:4px">
+<div style="font-size:11px;color:var(--t3);margin-bottom:8px">+ Añadir ${ev.rangos.length?'otro ':'un '}rango de fechas</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+<div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">Desde el día</div><input type="date" class="inp" id="ev-fi" style="padding:10px 12px;font-size:13px" min="2026-04-01" max="2026-05-31"></div>
+<div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">Hasta el día</div><input type="date" class="inp" id="ev-ff" style="padding:10px 12px;font-size:13px" min="2026-04-01" max="2026-05-31"></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+<div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">De hora</div><select class="inp" id="ev-hd" style="padding:10px 12px;font-size:13px">${[...Array(15)].map((_,i)=>`<option value="${8+i}">${8+i}:00</option>`).join('')}</select></div>
+<div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">Hasta hora</div><select class="inp" id="ev-hh" style="padding:10px 12px;font-size:13px">${[...Array(14)].map((_,i)=>`<option value="${9+i}" ${22===9+i?'selected':''}>${9+i}:00</option>`).join('')}</select></div>
+</div>
+<button id="ev-add-btn" style="width:100%;padding:12px;border-radius:10px;border:none;background:var(--gold);color:#000;font-weight:700;font-family:inherit;cursor:pointer;font-size:14px">+ Añadir fechas</button>
+</div></div>`;
+    if(ev.id==='deporte'){h+=`<div class="warn-box yellow" style="margin-bottom:14px"><div><div style="font-size:12px;color:var(--warn);font-weight:700">⚠️ Solo fechas confirmadas</div><div style="font-size:11px;color:var(--t2);margin-top:4px;line-height:1.5">Si aparece una clase y luego hay partido, los demás alumnos pierden su plaza y tú tendrías que abonar la clase de todas formas. Si hay fechas dudosas, es mejor no marcarlas ahora y añadirlas después cuando estén confirmadas. También puedes dejar ese tema sin pedir por ahora y preguntar semana a semana.</div></div></div>`;}
+    h+=`<div style="margin-bottom:16px"><div style="font-size:13px;font-weight:700;color:var(--t);margin-bottom:10px">Si tuviera que poner una clase que coincide con este evento...</div><div class="radio-row">${Object.entries(CL).map(([val,label])=>`<label class="radio-card ${ev.compromiso===val?'sel':''}"><input type="radio" name="ev-comp" value="${val}" ${ev.compromiso===val?'checked':''} onchange="W.evComp(${S.evCur},'${val}')">${label}</label>`).join('')}</div></div>`;
+  }
+  h+=`</div><div style="height:90px"></div></div>
+<div class="ftr"><div class="c"><button class="btn" id="next" ${canNext?'':'disabled'}>${isLast?'VER RESUMEN →':'SIGUIENTE PREGUNTA →'}</button></div></div>`;
+  return h;
+}
 
 // ═══ TOPICS ═══
 function topH(sid,sub,d){
@@ -418,6 +490,32 @@ ${ALUMNO_CLASES.length?stuClasesH():`<div style="text-align:center;color:var(--t
 </div>
 </div></div>`}
 
+function stuEditChoiceH(){
+  const peds=ALUMNO?.peticiones||[];
+  let evAct=0;try{const nb=JSON.parse(peds[0]?.nota_bloqueo||'');if(nb.v&&nb.eventos)evAct=nb.eventos.filter(e=>e.activo&&e.rangos.length).length;}catch(e){}
+  return`<div class="c" style="min-height:100dvh;display:flex;flex-direction:column;justify-content:center;padding-top:20px;padding-bottom:30px"><div class="fu">
+<button id="back" style="background:none;border:none;color:var(--t2);cursor:pointer;font-family:inherit;font-size:14px;margin-bottom:28px;padding:0">← Volver</button>
+<div style="text-align:center;margin-bottom:28px">
+<div style="font-size:40px;margin-bottom:10px">✏️</div>
+<h2 style="font-family:'Playfair Display',serif;font-size:22px;color:var(--gold2);margin-bottom:6px">¿Qué quieres actualizar?</h2>
+<p style="font-size:13px;color:var(--t2);line-height:1.5">Tu información se mantiene. Solo cambias lo que toques.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<button id="edit-subs" style="padding:22px;border-radius:16px;border:2px solid var(--brd);background:var(--card);cursor:pointer;font-family:inherit;text-align:left;display:flex;align-items:center;gap:16px">
+<span style="font-size:36px">📚</span>
+<div><div style="font-size:16px;font-weight:700;color:var(--t);margin-bottom:4px">Mis asignaturas y temas</div>
+<div style="font-size:12px;color:var(--t3)">Cambiar temas pedidos, fechas de examen o añadir asignatura</div></div>
+</button>
+<button id="edit-disp" style="padding:22px;border-radius:16px;border:2px solid var(--brd);background:var(--card);cursor:pointer;font-family:inherit;text-align:left;display:flex;align-items:center;gap:16px">
+<span style="font-size:36px">📅</span>
+<div><div style="font-size:16px;font-weight:700;color:var(--t);margin-bottom:4px">Mis incompatibilidades horarias</div>
+<div style="font-size:12px;color:${evAct?'var(--warn)':'var(--t3)'}">
+${evAct?`${evAct} evento(s) ya registrado(s) — actualizar o completar`:'Sin eventos registrados aún — añadir mis incompatibilidades'}</div></div>
+</button>
+</div>
+</div></div>`;
+}
+
 function stuClasesH(){
   let total=0;
   const bySubj={};
@@ -438,7 +536,7 @@ function stuClasesH(){
       total+=pt;
       h+=`<div style="padding:10px;border-radius:10px;background:var(--card2);margin-bottom:6px">
 <div style="font-weight:600;font-size:13px">${c.tema}</div>
-<div style="font-size:12px;color:var(--t2);margin-top:2px">${fl(c.fecha)} · ${c.hora_inicio}:00 · ${fmtDur(c.duracion_horas||2)}</div>
+<div style="font-size:12px;color:var(--t2);margin-top:2px">${fl(c.fecha)} · ${hToTime(c.hora_inicio)} · ${fmtDur(c.duracion_horas||2)}</div>
 <div style="font-size:12px;color:var(--gold);margin-top:2px;font-weight:600">${pt}€ esta clase (${nStu} alum. → ${ph}€/h)</div>
 </div>`;
     });
@@ -502,7 +600,16 @@ ${exp?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--b
 ${peds.map(p=>{const s=SJ.find(x=>x.id===p.asignatura_id);if(!s)return'';const temas=p.temas||[];return`<div style="padding:8px;border-radius:8px;background:${s.bg};margin-bottom:6px">
 <div style="font-weight:700;color:${s.a};font-size:11px">${s.e} ${s.n} · ${p.es_ebau?'EBAU':'Solo final'} · ${p.fecha_examen?fd(p.fecha_examen):'?'}${p.semana_hint?' ('+p.semana_hint+')':''}</div>
 <div style="font-size:10px;color:var(--t2);margin-top:2px">${temas.map(t=>t.priority+'. '+t.name+(t.urgent?' 🔥':'')).join(' · ')}</div>
-${(p.horas_bloqueadas||[]).length?`<div style="font-size:9px;color:var(--red);margin-top:2px">🚫 ${p.horas_bloqueadas.length} restricciones${p.nota_bloqueo?' — '+p.nota_bloqueo:''}</div>`:`<div style="font-size:9px;color:var(--grn);margin-top:2px">✅ Sin restricciones</div>`}
+${(()=>{
+let evs=null;try{const nb=JSON.parse(p.nota_bloqueo||'');if(nb.v&&nb.eventos)evs=nb.eventos.filter(e=>e.activo&&e.rangos.length);}catch(e){}
+if(evs&&evs.length){
+  const CL={skip:'podría venir',impossible:'IMPOSIBLE faltar',depends:'depende'};
+  return`<div style="margin-top:6px">${evs.map(e=>`<div style="font-size:10px;padding:3px 0;border-bottom:1px solid var(--brd)"><span style="font-weight:700;color:var(--gold)">${e.ico} ${e.id}</span> · ${e.rangos.map(r=>{const d1=new Date(r.fi+'T12:00:00');const d2=r.ff&&r.ff!==r.fi?new Date(r.ff+'T12:00:00'):null;return(d1.getDate()+'/'+(d1.getMonth()+1))+(d2?' → '+d2.getDate()+'/'+(d2.getMonth()+1):'')+' '+r.hd+'h-'+r.hh+'h'}).join(', ')} <span style="color:${e.compromiso==='impossible'?'var(--red)':e.compromiso==='skip'?'var(--grn)':'var(--warn)'}">→ ${CL[e.compromiso]||'?'}</span></div>`).join('')}</div>`;
+}
+const blk=p.horas_bloqueadas||[];if(!blk.length)return`<div style="font-size:9px;color:var(--grn);margin-top:2px">✅ Sin restricciones</div>`;
+const byDay={};blk.forEach(k=>{const[y,m,d,h]=k.split('-');const dt=y+'-'+m+'-'+d;if(!byDay[dt])byDay[dt]=[];byDay[dt].push(parseInt(h))});
+return`<div style="margin-top:4px">${Object.entries(byDay).map(([dt,hrs])=>`<div style="font-size:9px;color:var(--red)">${fl(dt)}: ${hrs.sort((a,b)=>a-b).map(h=>h+'h').join(', ')}</div>`).join('')}</div>`;
+})()}
 </div>`;}).join('')}
 <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
 <button onclick="W.togEdit('${a.id}',${!a.puede_editar})" style="padding:5px 10px;border-radius:7px;border:1px solid var(--brd);background:var(--card2);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">${a.puede_editar?'🔓 Puede editar':'🔒 No puede editar'}</button>
@@ -512,27 +619,63 @@ ${(p.horas_bloqueadas||[]).length?`<div style="font-size:9px;color:var(--red);ma
 
 function admHorarios(){
   const dc=AD.clases.filter(c=>c.fecha===ADATE).sort((a,b)=>a.hora_inicio-b.hora_inicio);
+  const failHtml=AORG_FAILURES.length?`<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:10px;margin-bottom:10px">
+<div style="font-weight:700;font-size:12px;color:var(--red);margin-bottom:6px">⚠️ ${AORG_FAILURES.length} tema(s) sin colocar — revisar manualmente</div>
+${AORG_FAILURES.map(f=>`<div style="padding:6px 0;border-bottom:1px solid rgba(239,68,68,.15);font-size:11px">
+<div style="font-weight:600;color:var(--t)">${f.sub} · ${f.topic}</div>
+<div style="color:var(--red);margin-top:1px">Motivo: ${f.reason}</div>
+<div style="color:var(--t2);margin-top:1px">Alumnos afectados: ${f.alumnos}</div>
+</div>`).join('')}
+</div>`:'';
   return`<div class="fu">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+<div style="margin-bottom:12px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
 <h2 style="font-family:'Playfair Display',serif;font-size:17px;color:var(--gold2)">Horarios (${AD.clases.length})</h2>
-<div style="display:flex;gap:4px">
-<button class="btn btn-s btn-o" onclick="W.autoOrg()">🤖 Auto</button>
-<button class="btn btn-s" onclick="W.togNew()">+ Nueva</button>
+<div style="display:flex;gap:4px;flex-wrap:wrap">
+<button class="btn btn-s btn-o" onclick="W.autoOrg()">🤖 Auto-organizar</button>
+<button class="btn btn-s" onclick="W.togNew()">+ Nueva clase</button>
 </div></div>
-<div id="nc" style="display:${ANEW?'block':'none'};background:var(--card);border-radius:10px;padding:10px;margin-bottom:10px;border:1px solid rgba(212,168,83,.2)">
-<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
-<select class="inp" id="nc-sub" style="flex:1;min-width:80px;font-size:12px">${SJ.map(s=>`<option value="${s.id}" ${ANC.sid===s.id?'selected':''}>${s.e} ${s.n}</option>`).join('')}</select>
-<select class="inp" id="nc-top" style="flex:2;min-width:120px;font-size:12px"><option value="">Tema...</option>${(TP[ANC.sid]||[]).map(t=>`<option value="${t.name}" ${ANC.topic===t.name?'selected':''}>${t.name} (${fmtDur(t.dur)})</option>`).join('')}</select></div>
-<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
-<select class="inp" id="nc-dt" style="flex:1;font-size:12px"><option value="">Fecha...</option>${DT.map(d=>`<option value="${d}" ${ANC.date===d?'selected':''}>${fl(d)}</option>`).join('')}</select>
-<select class="inp" id="nc-hr" style="width:65px;font-size:12px">${HR.map(h=>`<option value="${h}" ${ANC.hour===h?'selected':''}>${h}:00</option>`).join('')}</select>
-<select class="inp" id="nc-rm" style="flex:1;font-size:12px">${RM.map(r=>`<option value="${r.id}" ${ANC.room===r.id?'selected':''}>${r.n} (${r.c})</option>`).join('')}</select></div>
-<button class="btn btn-s btn-g" onclick="W.addCls()">✅ Crear clase</button></div>
+<button onclick="W.delAll()" style="width:100%;padding:14px;border-radius:12px;border:2px solid rgba(239,68,68,.4);background:rgba(239,68,68,.06);color:var(--red);font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">🗑 LIENZO EN BLANCO — Borrar toda la organización</button>
+</div>
+${failHtml}
+${ANEW?`<div style="background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;border:1px solid rgba(212,168,83,.35)">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+<div style="font-size:13px;font-weight:700;color:var(--gold)">+ NUEVA CLASE / DESDOBLE</div>
+<button onclick="W.togNew()" style="background:none;border:none;color:var(--t2);cursor:pointer;font-size:18px;padding:0 2px;font-family:inherit">✕</button>
+</div>
+
+<div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">ASIGNATURA</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px">
+${SJ.map(s=>{const on=ANC.sid===s.id;return`<button onclick="W.ncSub('${s.id}')" style="padding:10px 4px;border-radius:10px;border:2px solid ${on?s.a:'var(--brd)'};background:${on?s.bg:'var(--card2)'};cursor:pointer;font-family:inherit;text-align:center;transition:all .15s">
+<div style="font-size:22px;margin-bottom:3px">${s.e}</div>
+<div style="font-size:9px;font-weight:${on?700:400};color:${on?s.a:'var(--t3)'};line-height:1.2">${s.n}</div></button>`;}).join('')}
+</div>
+
+<div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">TEMA</div>
+<select class="inp" id="nc-top" style="font-size:13px;margin-bottom:12px"><option value="">Selecciona un tema...</option>${(TP[ANC.sid]||[]).map(t=>`<option value="${t.name}" ${ANC.topic===t.name?'selected':''}>${t.name} · ${fmtDur(t.dur)}</option>`).join('')}</select>
+
+<div style="display:flex;gap:8px;margin-bottom:12px">
+<div style="flex:2"><div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">FECHA</div>
+<select class="inp" id="nc-dt" style="font-size:13px"><option value="">Elige fecha...</option>${DT.map(d=>`<option value="${d}" ${ANC.date===d?'selected':''}>${fl(d)}</option>`).join('')}</select></div>
+<div style="flex:1"><div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">HORA</div>
+<input type="time" class="inp" id="nc-hr" value="${hToTime(ANC.hour)}" style="font-size:15px;font-weight:600;color:var(--gold2)"></div>
+<div style="flex:1"><div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">AULA</div>
+<select class="inp" id="nc-rm" style="font-size:13px">${RM.map(r=>`<option value="${r.id}" ${ANC.room===r.id?'selected':''}>${r.n}</option>`).join('')}</select></div>
+</div>
+
+<div id="nc-stu">${ANC.topic&&ANC.date?'':'<div style="font-size:12px;color:var(--t3);padding:8px 0;text-align:center">Selecciona tema y fecha para ver alumnos</div>'}</div>
+
+${(()=>{const n=ANC.selStudents.length;const tInfo=(TP[ANC.sid]||[]).find(t=>t.name===ANC.topic);const rate=n>=2?tarifa(n):null;const total=rate&&tInfo?Math.round(rate*tInfo.dur*100)/100:null;return`<button onclick="W.addCls()" class="btn-create-cls" style="width:100%;padding:14px;border-radius:10px;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;background:${n>=1?'linear-gradient(135deg,var(--gold),#c4943d)':'var(--card2)'};color:${n>=1?'#000':'var(--t3)'};${n<1?'pointer-events:none':''}">
+${n>=1?`✅ Crear clase · ${n} alumno${n>1?'s':''} · ${rate?rate+'€/h':'(min 2)'}${total?' · '+total+'€/alumno':''}`:n===0?'Selecciona al menos 1 alumno':'Elige tema y fecha primero'}</button>`})()}
+</div>`:''}
 
 <div style="display:flex;gap:3px;overflow-x:auto;padding-bottom:4px;margin-bottom:8px">${DT.map(d=>{const n=AD.clases.filter(c=>c.fecha===d).length;return`<button onclick="W.selD('${d}')" style="padding:5px 6px;border-radius:6px;border:none;cursor:pointer;font-family:inherit;background:${d===ADATE?'var(--gold)':'var(--card)'};color:${d===ADATE?'#000':'var(--t3)'};font-size:9px;font-weight:${d===ADATE?700:400};white-space:nowrap;min-width:38px">${fd(d)}${n?`<div style="font-size:7px">${n}cl</div>`:''}</button>`;}).join('')}</div>
 
 <div style="background:var(--card);border-radius:10px;padding:10px;border:1px solid var(--brd)">
-<div style="font-weight:600;font-size:13px;margin-bottom:8px;color:var(--gold2)">📅 ${fl(ADATE)}</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+<div style="font-weight:600;font-size:13px;color:var(--gold2)">📅 ${fl(ADATE)} <span style="font-size:10px;color:var(--t3)">${dc.length} clase(s)</span></div>
+${dc.length?`<button onclick="W.delDay('${ADATE}')" style="padding:4px 8px;border-radius:6px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:var(--red);font-size:10px;cursor:pointer;font-family:inherit">🗑 Borrar día</button>`:''}
+</div>
 ${dc.length?dc.map(c=>{
   const sub=SJ.find(s=>s.id===c.asignatura_id);
   const rm=RM.find(r=>r.id===c.aula);
@@ -543,17 +686,24 @@ ${dc.length?dc.map(c=>{
   return`<div style="padding:10px;border-radius:8px;margin-bottom:6px;background:${sub?.bg||'var(--card2)'};border:1px solid ${sub?.a||'var(--brd)'}18">
 <div style="display:flex;justify-content:space-between;align-items:flex-start">
 <div style="flex:1">
-<div style="font-size:12px;font-weight:700;color:${sub?.a||'var(--t)'}">${c.hora_inicio}:00 · ${sub?.e||''} ${sub?.n||c.asignatura_id}</div>
+<div style="font-size:12px;font-weight:700;color:${sub?.a||'var(--t)'}">${hToTime(c.hora_inicio)} · ${sub?.e||''} ${sub?.n||c.asignatura_id}</div>
 <div style="font-size:13px;font-weight:500;margin-top:2px">${c.tema}${tInfo?` <span style="font-size:10px;color:var(--t3)">${fmtDur(tInfo.dur)}</span>`:''}</div>
-<div style="font-size:10px;color:var(--t3);margin-top:1px">${rm?.n||c.aula} · ${nStu} alum.${nStu>=2?' · '+rate+'€/h':' · (mín 2 alumnos)'}</div>
+<div style="font-size:10px;color:var(--t3);margin-top:1px">${rm?.n||c.aula} · ${nStu} alum.${nStu>=2?' · <span style="color:var(--gold)">'+rate+'€/h · '+(Math.round(rate*(tInfo?.dur||2)*100)/100)+'€/alumno</span>':' · <span style="color:var(--warn)">(min 2 para calcular precio)</span>'}</div>
 </div>
-<button onclick="W.delCls('${c.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px">✕</button>
+<button onclick="W.delCls('${c.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px 6px">✕</button>
 </div>
-<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:8px">
-${AD.alumnos.filter(a=>(a.peticiones||[]).some(p=>p.asignatura_id===c.asignatura_id)).map(a=>{
-  const inI=insc.find(i=>i.alumno_id===a.id);
-  return`<button onclick="W.togCS('${c.id}','${a.id}')" style="padding:3px 8px;border-radius:5px;border:1px solid ${inI?sub?.a||'var(--gold)':'var(--brd)'};font-size:10px;cursor:pointer;background:${inI?(sub?.a||'var(--gold)')+'22':'var(--card)'};color:${inI?sub?.a||'var(--gold)':'var(--t2)'};font-family:inherit">${inI?'✓':'+'}  ${esc(a.nombre)}</button>`;
-}).join('')}
+<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:10px">
+${(()=>{
+  // Inscribed first, then ANY student with a petition for this subject (not yet inscribed)
+  const inscribedIds=new Set(insc.map(i=>i.alumno_id));
+  const candidatos=AD.alumnos.filter(a=>!inscribedIds.has(a.id)&&(a.peticiones||[]).some(p=>p.asignatura_id===c.asignatura_id));
+  const allChip=[...insc.map(i=>({a:AD.alumnos.find(x=>x.id===i.alumno_id),inI:i})),...candidatos.map(a=>({a,inI:null}))].filter(x=>x.a);
+  return allChip.map(({a,inI})=>{
+    const pedTopics=(a.peticiones||[]).find(p=>p.asignatura_id===c.asignatura_id)?.temas||[];
+    const pidioEste=pedTopics.some(t=>t.name===c.tema);
+    return`<button onclick="W.togCS('${c.id}','${a.id}')" style="padding:5px 10px;border-radius:8px;border:1.5px solid ${inI?sub?.a||'var(--gold)':pidioEste?'var(--brd)':'rgba(255,255,255,.08)'};font-size:11px;cursor:pointer;background:${inI?(sub?.bg||'rgba(212,168,83,.1)'):'var(--card2)'};color:${inI?sub?.a||'var(--gold)':pidioEste?'var(--t2)':'var(--t3)'};font-family:inherit;font-weight:${inI?600:400};opacity:${inI||pidioEste?1:.6}" title="${pidioEste?'Pidió este tema':'No pidió este tema'}">${inI?'✓ ':''} ${esc(a.nombre)}${a.es_externo?'<span style="font-size:8px;opacity:.7"> ext</span>':''}</button>`;
+  }).join('');
+})()}
 </div></div>`;
 }).join(''):`<div style="text-align:center;padding:20px;color:var(--t3);font-size:12px">Sin clases este día</div>`}
 </div></div>`}
@@ -603,7 +753,7 @@ function renderSP(){
       const insc=c.inscripciones||[];const nStu=insc.length;
       const rate=st.es_externo?tarifaExt(nStu):tarifa(nStu);
       const dur=c.duracion_horas||2;const cost=Math.round(rate*dur*100)/100;total+=cost;
-      m+=`  📅 ${fl(c.fecha)} · ${c.hora_inicio}:00 · ${fmtDur(dur)}\n     ${c.tema} (${nStu} alum. → ${rate}€/h)\n     Importe: ${cost}€\n`;
+      m+=`  📅 ${fl(c.fecha)} · ${hToTime(c.hora_inicio)} · ${fmtDur(dur)}\n     ${c.tema} (${nStu} alum. → ${rate}€/h)\n     Importe: ${cost}€\n`;
     });
   });
   m+=`\n━━━━━━━━━━━━━━━━━━━━\n💰 *TOTAL: ${total}€*\n\n⚠️ Horarios firmes. ¿Confirmas? *SÍ* 🙏`;
@@ -629,6 +779,18 @@ W.togHr=function(sid,dt,hr){
 };
 W.setWNote=function(sid,v){S.data[sid].blockNote=v};
 W.cpBl=function(sid){const f=S.data[sid].blocked;S.subs.forEach(s=>{if(s!==sid)S.data[s].blocked=[...f]});toast('Copiado ✓',true)};
+W.evTog=function(i,v){S.eventos[i].activo=v;if(!v){S.eventos[i].rangos=[];S.eventos[i].compromiso='';}R()};
+W.evComp=function(i,v){S.eventos[i].compromiso=v;R()};
+W.evRmR=function(i,j){S.eventos[i].rangos.splice(j,1);R()};
+W.evAddR=function(){
+  const fi=document.getElementById('ev-fi')?.value;
+  const ff=document.getElementById('ev-ff')?.value||fi;
+  const hd=parseInt(document.getElementById('ev-hd')?.value||'8');
+  const hh=parseInt(document.getElementById('ev-hh')?.value||'22');
+  if(!fi){toast('Indica una fecha');return;}
+  if(hh<=hd){toast('La hora final debe ser mayor que la inicial');return;}
+  S.eventos[S.evCur].rangos.push({fi,ff,hd,hh});R();
+};
 W.togExp=function(id){AEXP[id]=!AEXP[id];R()};
 W.togEdit=async function(id,val){
   await db.from('alumnos').update({puede_editar:val}).eq('id',id);
@@ -657,10 +819,22 @@ W.togNew=function(){ANEW=!ANEW;R()};
 W.addCls=async function(){
   if(!ANC.topic||!ANC.date){toast('Completa asignatura, tema y fecha');return}
   const tInfo=(TP[ANC.sid]||[]).find(t=>t.name===ANC.topic);
+  showOv(true,'Creando clase...');
   const {data,error}=await db.from('clases').insert({asignatura_id:ANC.sid,tema:ANC.topic,duracion_horas:tInfo?.dur||2,descanso_min:tInfo?.brk||0,fecha:ANC.date,hora_inicio:ANC.hour,aula:ANC.room}).select().single();
-  if(error){toast('Error: '+error.message);return}
+  if(error){showOv(false);toast('Error: '+error.message);return}
   data.inscripciones=[];
-  AD.clases.push(data);ANEW=false;toast('✅ Clase creada',true);R();
+  // Add inscriptions for selected students
+  const n=ANC.selStudents.length;
+  for(const aid of ANC.selStudents){
+    const a=AD.alumnos.find(x=>x.id===aid);
+    const ph=a?.es_externo?tarifaExt(n):tarifa(n);
+    const pt=Math.round(ph*(tInfo?.dur||2)*100)/100;
+    const {data:ins}=await db.from('inscripciones').insert({clase_id:data.id,alumno_id:aid,precio_hora:ph,precio_total:pt}).select().single();
+    if(ins)data.inscripciones.push(ins);
+  }
+  AD.clases.push(data);
+  ANC={sid:ANC.sid,topic:'',date:ANC.date,hour:ANC.hour,room:ANC.room,selStudents:[]};
+  ANEW=false;showOv(false);ADATE=ANC.date||ADATE;toast('✅ Clase creada con '+n+' alumno'+(n>1?'s':''),true);R();
 };
 W.delCls=async function(id){
   await db.from('clases').delete().eq('id',id);
@@ -674,8 +848,6 @@ W.togCS=async function(cid,aid){
     await db.from('inscripciones').delete().eq('clase_id',cid).eq('alumno_id',aid);
     c.inscripciones.splice(idx,1);
   } else {
-    const rm=RM.find(r=>r.id===c.aula);
-    if(c.inscripciones.length>=(rm?.c||8)){toast('Clase llena');return}
     const a=AD.alumnos.find(x=>x.id===aid);
     const nStu=c.inscripciones.length+1;
     const ph=a?.es_externo?tarifaExt(nStu):tarifa(nStu);
@@ -698,76 +870,229 @@ W.togCS=async function(cid,aid){
 };
 W.autoOrg=async function(){
   const stu=AD.alumnos;if(!stu.length){toast('No hay alumnos');return}
-  showOv(true,'Organizando clases...');
-  // Delete existing empty classes
-  const toKeep=AD.clases.filter(c=>(c.inscripciones||[]).length>0);
+  if(!confirm('¿Reorganizar clases? Se borrarán las que no tengan alumnos asignados y se recalculará todo.'))return;
+  showOv(true,'Analizando demanda...');
+  // Borrar solo clases sin inscripciones (las auto-generadas vacías)
   const toDel=AD.clases.filter(c=>!(c.inscripciones||[]).length);
   for(const c of toDel)await db.from('clases').delete().eq('id',c.id);
-  let res=[...toKeep];
-  // Sort students: academy first, then external
+  let res=AD.clases.filter(c=>(c.inscripciones||[]).length>0);
+  const failures=[];
   const sorted=[...stu].sort((a,b)=>(a.es_externo?1:0)-(b.es_externo?1:0));
+  // Carga por profesor por día (para repartir)
+  const dayLd={};
+  DT.forEach(d=>dayLd[d]={David:0,Lupe:0});
+  res.forEach(c=>{const s=SJ.find(x=>x.id===c.asignatura_id);if(s&&dayLd[c.fecha])dayLd[c.fecha][s.t]=(dayLd[c.fecha][s.t]||0)+1});
+  // Construir demanda por tema
+  const allT=[];
   for(const sub of SJ){
-    const subStu=sorted.filter(s=>(s.peticiones||[]).some(p=>p.asignatura_id===sub.id));
-    if(!subStu.length)continue;
-    // Build demand map per topic
+    const ss=sorted.filter(s=>(s.peticiones||[]).some(p=>p.asignatura_id===sub.id));
+    if(!ss.length)continue;
     const dem={};
-    subStu.forEach(s=>{
-      const ped=s.peticiones.find(p=>p.asignatura_id===sub.id);
-      if(!ped)return;
-      (ped.temas||[]).forEach(t=>{
-        if(!dem[t.name])dem[t.name]={pr:0,urg:0,sts:[],stuMap:{}};
-        dem[t.name].urg+=(t.urgent?1:0);dem[t.name].pr+=t.priority;
-        dem[t.name].sts.push(s.id);dem[t.name].stuMap[s.id]=ped;
+    ss.forEach(s=>{
+      const p=s.peticiones.find(x=>x.asignatura_id===sub.id);if(!p)return;
+      (p.temas||[]).forEach(t=>{
+        if(!dem[t.name])dem[t.name]={sub,topic:t.name,stus:[],urgDeadline:null,stuMap:{}};
+        const d=dem[t.name];
+        d.stus.push(s.id);d.stuMap[s.id]=p;
+        if(t.urgent&&p.fecha_examen&&(!d.urgDeadline||p.fecha_examen<d.urgDeadline))d.urgDeadline=p.fecha_examen;
       });
     });
-    const topicsSorted=Object.entries(dem).sort((a,b)=>b[1].urg!==a[1].urg?b[1].urg-a[1].urg:(a[1].pr/a[1].sts.length)-(b[1].pr/b[1].sts.length));
-    for(const [topic,info] of topicsSorted){
-      if(res.some(c=>c.asignatura_id===sub.id&&c.tema===topic))continue;
-      let best=null,bestN=0;
+    Object.values(dem).forEach(d=>allT.push(d));
+  }
+  // Ordenar: urgentes primero por fecha límite, luego por demanda
+  allT.sort((a,b)=>{
+    if(a.urgDeadline&&!b.urgDeadline)return -1;
+    if(!a.urgDeadline&&b.urgDeadline)return 1;
+    if(a.urgDeadline&&b.urgDeadline&&a.urgDeadline!==b.urgDeadline)return a.urgDeadline<b.urgDeadline?-1:1;
+    return b.stus.length-a.stus.length;
+  });
+  // Helper: fin de semana al que pertenece una fecha
+  const wkOf=dt=>{const x=new Date(dt+'T12:00:00');const dw=x.getDay();if(dw===6)return dt;if(dw===0){x.setDate(x.getDate()-1);return x.toISOString().slice(0,10)}return null};
+  const dtIdx=dt=>DT.indexOf(dt);
+  // Programar cada tema
+  showOv(true,'Organizando clases...');
+  for(const tDem of allT){
+    const{sub,topic,stus,urgDeadline,stuMap}=tDem;
+    const tInfo=(TP[sub.id]||[]).find(t=>t.name===topic);
+    // Alumnos ya asignados a este tema (desdobles previos o manuales)
+    const scheduled=new Set(res.filter(c=>c.asignatura_id===sub.id&&c.tema===topic).flatMap(c=>(c.inscripciones||[]).map(i=>i.alumno_id)));
+    let left=stus.filter(s=>!scheduled.has(s));
+    if(!left.length)continue;
+    const sesDts=[];// fechas de sesiones ya creadas para este tema (para variar fin de semana en desdobles)
+    while(left.length>0){
+      let best=null,bestSc=-Infinity,bestAv=[];
       for(const dt of DT){
+        if(urgDeadline&&dt>urgDeadline)continue;// límite duro: fecha examen
+        if((dayLd[dt]||{})[sub.t]>=4)continue;// máx 4 clases/profesor/día para repartir
         for(const hr of HR){
-          // Check teacher not double booked
+          // Profesor no doblado
           if(res.some(c=>c.fecha===dt&&c.hora_inicio===hr&&SJ.find(s=>s.id===c.asignatura_id)?.t===sub.t))continue;
-          // Find available students
-          const av=info.sts.filter(sid=>{
-            const ped=info.stuMap[sid];
-            if((ped.horas_bloqueadas||[]).includes(dt+'-'+hr))return false;
-            // Check student not in another class at same time
+          // Aula disponible
+          const usedRm=res.filter(c=>c.fecha===dt&&c.hora_inicio===hr).map(c=>c.aula);
+          const rm=RM.find(r=>!usedRm.includes(r.id));if(!rm)continue;
+          // Alumnos disponibles en este hueco
+          const av=left.filter(sid=>{
+            const p=stuMap[sid];if(!p)return false;
+            if((p.horas_bloqueadas||[]).includes(dt+'-'+hr))return false;
             if(res.some(c=>c.fecha===dt&&c.hora_inicio===hr&&(c.inscripciones||[]).some(i=>i.alumno_id===sid)))return false;
-            // Spread preference: penalize if student has class same day
-            const s=sorted.find(x=>x.id===sid);
-            if(s&&!s.prefiere_concentrar){
-              const sameDay=res.filter(c=>c.fecha===dt&&(c.inscripciones||[]).some(i=>i.alumno_id===sid)).length;
-              if(sameDay>=2)return false;
-            }
             return true;
           });
-          if(av.length>bestN){bestN=av.length;best={dt,hr,sts:av}}
-        }
-      }
-      if(best&&bestN>0){
-        const usedRooms=res.filter(c=>c.fecha===best.dt&&c.hora_inicio===best.hr).map(c=>c.aula);
-        const rm=RM.find(r=>!usedRooms.includes(r.id));
-        if(rm){
-          const tInfo=(TP[sub.id]||[]).find(t=>t.name===topic);
-          const {data:cls}=await db.from('clases').insert({asignatura_id:sub.id,tema:topic,duracion_horas:tInfo?.dur||2,descanso_min:tInfo?.brk||0,fecha:best.dt,hora_inicio:best.hr,aula:rm.id}).select().single();
-          if(!cls)continue;
-          cls.inscripciones=[];
-          const stuToAdd=best.sts.slice(0,rm.c);
-          const nStu=stuToAdd.length;
-          for(const sid of stuToAdd){
-            const a=sorted.find(x=>x.id===sid);
-            const ph=a?.es_externo?tarifaExt(nStu):tarifa(nStu);
-            const pt=Math.round(ph*(tInfo?.dur||2)*100)/100;
-            const {data:insc}=await db.from('inscripciones').insert({clase_id:cls.id,alumno_id:sid,precio_hora:ph,precio_total:pt}).select().single();
-            if(insc)cls.inscripciones.push(insc);
+          if(!av.length)continue;
+          // Puntuación del hueco
+          let sc=av.length*100;
+          sc-=((dayLd[dt]||{})[sub.t]||0)*20;// penalizar día cargado
+          // Reparto: urgentes → centro del rango; no urgentes → fechas posteriores (mayo)
+          const pos=dtIdx(dt)/DT.length;
+          if(urgDeadline){
+            let dlI=DT.length-1;for(let i=0;i<DT.length;i++){if(DT[i]>urgDeadline){dlI=i-1;break}}
+            const relP=dlI>0?dtIdx(dt)/dlI:0;
+            sc-=Math.abs(relP-0.5)*15;// preferir centro del rango disponible
+          } else {
+            sc+=pos*25;// preferir fechas de mayo para no urgentes
           }
-          res.push(cls);
+          // Variedad de fin de semana para desdobles
+          const wk=wkOf(dt);
+          if(wk&&sesDts.some(d=>wkOf(d)===wk))sc-=40;
+          // Penalizar si el alumno ya tiene muchas clases ese día
+          av.forEach(sid=>{sc-=res.filter(c=>c.fecha===dt&&(c.inscripciones||[]).some(i=>i.alumno_id===sid)).length*8});
+          if(sc>bestSc){bestSc=sc;best={dt,hr,rm};bestAv=av}
         }
       }
+      if(!best){
+        failures.push({sub:sub.n,topic,reason:urgDeadline?'Sin hueco antes del '+fd(urgDeadline):'Sin hueco disponible en el calendario',alumnos:left.map(s=>{const a=sorted.find(x=>x.id===s);return a?a.nombre+' '+a.apellidos:'?'}).join(', ')});
+        break;
+      }
+      // Crear clase con hasta el aforo de la aula (desdoble automático si quedan más)
+      const stuToAdd=bestAv.slice(0,best.rm.c);
+      const{data:cls}=await db.from('clases').insert({asignatura_id:sub.id,tema:topic,duracion_horas:tInfo?.dur||2,descanso_min:tInfo?.brk||0,fecha:best.dt,hora_inicio:best.hr,aula:best.rm.id}).select().single();
+      if(!cls)break;
+      cls.inscripciones=[];
+      const nStu=stuToAdd.length;
+      for(const sid of stuToAdd){
+        const a=sorted.find(x=>x.id===sid);
+        const ph=a?.es_externo?tarifaExt(nStu):tarifa(nStu);
+        const pt=Math.round(ph*(tInfo?.dur||2)*100)/100;
+        const{data:insc}=await db.from('inscripciones').insert({clase_id:cls.id,alumno_id:sid,precio_hora:ph,precio_total:pt}).select().single();
+        if(insc)cls.inscripciones.push(insc);
+      }
+      res.push(cls);
+      sesDts.push(best.dt);
+      dayLd[best.dt][sub.t]=(dayLd[best.dt][sub.t]||0)+1;
+      left=left.filter(s=>!stuToAdd.includes(s));
     }
   }
-  AD.clases=res;showOv(false);toast('✅ '+res.length+' clases organizadas',true);R();
+  AD.clases=res;AORG_FAILURES=[...failures];
+  showOv(false);
+  const sinColocar=failures.length?' · ⚠️ '+failures.length+' temas sin colocar':'';
+  toast('✅ '+res.length+' clases'+sinColocar,!failures.length);
+  R();
+};
+W.delDay=async function(dt){
+  const n=AD.clases.filter(c=>c.fecha===dt).length;
+  if(!n){toast('Sin clases ese día');return}
+  if(!confirm('¿Borrar las '+n+' clases del '+fl(dt)+'?\nLos datos de alumnos NO se eliminan.'))return;
+  showOv(true,'Borrando...');
+  for(const c of AD.clases.filter(x=>x.fecha===dt))await db.from('clases').delete().eq('id',c.id);
+  AD.clases=AD.clases.filter(c=>c.fecha!==dt);
+  showOv(false);toast('Día borrado');R();
+};
+W.delAll=async function(){
+  if(!AD.clases.length){toast('No hay clases que borrar');return}
+  if(!confirm('¿Borrar TODA la organización? ('+AD.clases.length+' clases)\nLos datos de alumnos NO se eliminan.'))return;
+  showOv(true,'Borrando todo...');
+  for(const c of AD.clases)await db.from('clases').delete().eq('id',c.id);
+  AD.clases=[];AORG_FAILURES=[];
+  showOv(false);toast('Organización borrada');R();
+};
+W.ncSub=function(id){ANC.sid=id;ANC.topic='';ANC.selStudents=[];R()};
+W.ncTop=function(val){
+  ANC.topic=val;
+  ANC.selStudents=[];
+  if(val&&ANC.date){
+    const tInfo=(TP[ANC.sid]||[]).find(t=>t.name===val);
+    const newDur=tInfo?.dur||2;
+    const stuPed=AD.alumnos.filter(a=>(a.peticiones||[]).some(p=>p.asignatura_id===ANC.sid&&(p.temas||[]).some(t=>t.name===val)));
+    stuPed.forEach(a=>{
+      const ped=a.peticiones.find(p=>p.asignatura_id===ANC.sid);
+      const inThis=AD.clases.some(c=>c.asignatura_id===ANC.sid&&c.tema===val&&(c.inscripciones||[]).some(i=>i.alumno_id===a.id));
+      const blocked=(ped?.horas_bloqueadas||[]).some(k=>{const p=k.split('-');const kh=parseInt(p[p.length-1]);const kd=p.slice(0,-1).join('-');return kd===ANC.date&&kh>=Math.floor(ANC.hour)&&kh<Math.ceil(ANC.hour+newDur);});
+      const clash=AD.clases.some(c=>c.fecha===ANC.date&&(c.inscripciones||[]).some(i=>i.alumno_id===a.id)&&overlapsRange(ANC.hour,newDur,c.hora_inicio,c.duracion_horas||2));
+      if(!inThis&&!blocked&&!clash)ANC.selStudents.push(a.id);
+    });
+  }
+  W.ncCheck();
+};
+W.togNCStu=function(id){
+  const idx=ANC.selStudents.indexOf(id);
+  if(idx>=0)ANC.selStudents.splice(idx,1);else ANC.selStudents.push(id);
+  W.ncCheck();
+};
+W.ncAddExtra=function(id){if(id&&!ANC.selStudents.includes(id)){ANC.selStudents.push(id);W.ncCheck()}};
+W.ncCheck=function(){
+  const el=document.getElementById('nc-stu');if(!el)return;
+  if(!ANC.topic||!ANC.date){el.innerHTML='<div style="font-size:12px;color:var(--t3);padding:8px 0;text-align:center">Selecciona tema y fecha para ver alumnos</div>';return}
+  const sub=SJ.find(s=>s.id===ANC.sid);
+  const tInfo=(TP[ANC.sid]||[]).find(t=>t.name===ANC.topic);
+  const newDur=tInfo?.dur||2;
+  const stuPed=AD.alumnos.filter(a=>(a.peticiones||[]).some(p=>p.asignatura_id===ANC.sid&&(p.temas||[]).some(t=>t.name===ANC.topic)));
+  const CL={skip:'podría venir',impossible:'IMPOSIBLE faltar',depends:'depende'};
+  // Evaluate each student
+  function stuStatus(a){
+    const ped=a.peticiones.find(p=>p.asignatura_id===ANC.sid);
+    const inThis=AD.clases.some(c=>c.asignatura_id===ANC.sid&&c.tema===ANC.topic&&(c.inscripciones||[]).some(i=>i.alumno_id===a.id));
+    const blocked=(ped?.horas_bloqueadas||[]).some(k=>{const p=k.split('-');const kh=parseInt(p[p.length-1]);const kd=p.slice(0,-1).join('-');return kd===ANC.date&&kh>=Math.floor(ANC.hour)&&kh<Math.ceil(ANC.hour+newDur);});
+    const clash=AD.clases.some(c=>c.fecha===ANC.date&&(c.inscripciones||[]).some(i=>i.alumno_id===a.id)&&overlapsRange(ANC.hour,newDur,c.hora_inicio,c.duracion_horas||2));
+    const sameDay=!clash&&AD.clases.some(c=>c.fecha===ANC.date&&(c.inscripciones||[]).some(i=>i.alumno_id===a.id));
+    let evInfo=null;
+    if(blocked&&ped){try{const nb=JSON.parse(ped.nota_bloqueo||'');if(nb.v&&nb.eventos){const ev=nb.eventos.filter(e=>e.activo&&e.rangos.length).find(e=>e.rangos.some(r=>{const d1=new Date(r.fi+'T12:00:00'),d2=r.ff?new Date(r.ff+'T12:00:00'):d1,td=new Date(ANC.date+'T12:00:00');return td>=d1&&td<=d2&&ANC.hour>=r.hd&&ANC.hour<r.hh;}));if(ev)evInfo=ev;}}catch(e){}}
+    return{inThis,blocked,clash,sameDay,evInfo};
+  }
+  // Warnings for selected students
+  const warnings=ANC.selStudents.map(id=>{
+    const a=AD.alumnos.find(x=>x.id===id);if(!a)return null;
+    const st=stuStatus(a);
+    if(st.clash)return`⚠️ ${esc(a.nombre)}: solape con otra clase (${hToTime(ANC.hour)}–${hToTime(ANC.hour+newDur)})`;
+    if(st.blocked&&st.evInfo){const c=st.evInfo.compromiso;return`${st.evInfo.ico} ${esc(a.nombre)}: ${st.evInfo.id}${c==='impossible'?' — IMPOSIBLE faltar':c==='depends'?' — depende del repaso':''}`;}
+    if(st.blocked)return`🔴 ${esc(a.nombre)}: ha bloqueado esa franja horaria`;
+    return null;
+  }).filter(Boolean);
+  const warnHtml=warnings.length?`<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:8px;margin-bottom:8px">${warnings.map(w=>`<div style="font-size:10px;color:var(--warn);margin-bottom:2px">${w}</div>`).join('')}<div style="font-size:9px;color:var(--t3);margin-top:4px">La clase se creará igualmente</div></div>`:'';
+  // Student cards
+  const cardsHtml=stuPed.length?`<div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">PIDIERON ESTE TEMA</div>`+stuPed.map(a=>{
+    const sel=ANC.selStudents.includes(a.id);
+    const st=stuStatus(a);
+    // inThis = already covered in another session → disabled, non-clickable
+    if(st.inThis){return`<div style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;border:1px solid var(--brd);background:transparent;margin-bottom:4px;opacity:.45">
+<div style="display:flex;align-items:center;gap:8px">
+<div style="width:20px;height:20px;border-radius:5px;border:2px solid var(--t3);background:var(--t3);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;color:#000">✓</div>
+<span style="font-size:13px;color:var(--t3)">${esc(a.nombre)} ${esc(a.apellidos)}</span>
+</div>
+<span style="font-size:10px;color:var(--t3)">ya tiene este tema</span></div>`;}
+    let tag='',tagCol='var(--t3)';
+    if(st.clash){tag='⚠️ solape';tagCol='var(--red)'}
+    else if(st.blocked&&st.evInfo){const c=st.evInfo.compromiso;const cc=c==='impossible'?'var(--red)':c==='skip'?'var(--grn)':'var(--warn)';tag=`${st.evInfo.ico} ${st.evInfo.id}`;tagCol=cc}
+    else if(st.blocked){tag='bloqueado';tagCol='var(--red)'}
+    else if(st.sameDay){tag='otro repaso hoy';tagCol='var(--warn)'}
+    else{tag='✅ disponible';tagCol='var(--grn)'}
+    return`<button onclick="W.togNCStu('${a.id}')" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;border:2px solid ${sel?sub?.a||'var(--gold)':'var(--brd)'};background:${sel?(sub?.bg||'rgba(212,168,83,.08)'):'var(--card2)'};cursor:pointer;font-family:inherit;margin-bottom:4px;transition:all .15s">
+<div style="display:flex;align-items:center;gap:8px">
+<div style="width:20px;height:20px;border-radius:5px;border:2px solid ${sel?sub?.a||'var(--gold)':'var(--brd)'};background:${sel?sub?.a||'var(--gold)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;color:#000">${sel?'✓':''}</div>
+<span style="font-size:13px;font-weight:${sel?600:400};color:var(--t)">${esc(a.nombre)} ${esc(a.apellidos)}${a.es_externo?'<span style="font-size:9px;color:var(--warn);margin-left:4px">ext</span>':''}</span>
+</div>
+<span style="font-size:10px;color:${tagCol}">${tag}</span></button>`;
+  }).join(''):'<div style="font-size:12px;color:var(--t3);padding:6px 0">Ningún alumno ha pedido este tema</div>';
+  // Extra students
+  const shownIds=new Set(stuPed.map(a=>a.id));
+  const extras=AD.alumnos.filter(a=>!shownIds.has(a.id));
+  const extraHtml=extras.length?`<div style="margin-top:10px"><div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;margin-bottom:6px">AÑADIR OTRO ALUMNO</div>
+<select class="inp" id="nc-extra" style="font-size:12px" onchange="W.ncAddExtra(this.value);this.value=''">
+<option value="">+ Añadir alumno registrado...</option>
+${extras.filter(a=>!ANC.selStudents.includes(a.id)).map(a=>`<option value="${a.id}">${esc(a.nombre)} ${esc(a.apellidos)}</option>`).join('')}
+</select></div>`:'';
+  const n=ANC.selStudents.length;const rate=n>=2?tarifa(n):null;const total=rate&&tInfo?Math.round(rate*tInfo.dur*100)/100:null;
+  const btnEl=document.querySelector('.btn-create-cls');
+  if(btnEl){btnEl.style.background=n>=1?'linear-gradient(135deg,var(--gold),#c4943d)':'var(--card2)';btnEl.style.color=n>=1?'#000':'var(--t3)';btnEl.style.pointerEvents=n>=1?'auto':'none';btnEl.textContent=n>=1?`✅ Crear clase · ${n} alumno${n>1?'s':''} · ${rate?rate+'€/h':'(sin precio aún)'}${total?' · '+total+'€/alumno':''}`:n===0?'Selecciona al menos 1 alumno':'Elige tema y fecha primero';}
+  el.innerHTML=warnHtml+cardsHtml+extraHtml;
 };
 
 // ═══ BIND ═══
@@ -830,8 +1155,13 @@ function bind(){
       else if(REG.step==='config'){REG.step='datos';R()}
       else if(REG.step==='pin'){REG.step='config';R()}
       else if(REG.step==='pin2'){REG.step='pin';REG.pinBuf='';REG.pinBuf2='';R()}
-    } else if(V==='wizard'){
-      if(S.step===0)go('splash');
+    } else if(V==='stu-edit'){go('stu-home')}
+    else if(V==='wizard'){
+      if(S.editMode==='disp'){
+        if(S.evCur>0){S.evCur--;R();window.scrollTo(0,0)}
+        else go('stu-edit');
+      } else if(S.step===0){S.editMode?go('stu-edit'):go('splash')}
+      else if(S.step===1+S.subs.length&&S.evCur>0){S.evCur--;R();window.scrollTo(0,0)}
       else{S.step--;R();window.scrollTo(0,0)}
     } else if(V==='fin'){S.step=S.subs.length;go('wizard')}
     else if(V==='login')go('splash');
@@ -846,10 +1176,24 @@ function bind(){
       else if(REG.step==='config'){REG.step='pin';REG.pinBuf='';R();window.scrollTo(0,0)}
     } else if(V==='login'){go('login-pin')}
     else if(V==='wizard'){
-      if(S.step===0+S.subs.length){genMsg();S.step=999;R();window.scrollTo(0,0)}
-      else{S.step++;R();window.scrollTo(0,0)}
+      const ts=1+S.subs.length;
+      if(S.editMode==='disp'){
+        if(S.evCur<6){S.evCur++;R();window.scrollTo(0,0)}
+        else{genMsg();go('fin-disp')}
+      } else if(S.step===ts){
+        if(S.evCur<6){S.evCur++;R();window.scrollTo(0,0)}
+        else{genMsg();S.step=999;R();window.scrollTo(0,0)}
+      } else if(S.step===ts-1){
+        if(S.editMode==='subs'){genMsg();S.step=999;R();window.scrollTo(0,0)}
+        else{S.step=ts;S.evCur=0;R();window.scrollTo(0,0)}
+      } else {
+        S.step++;R();window.scrollTo(0,0)
+      }
     }
   });
+
+  // Eventos wizard
+  document.getElementById('ev-add-btn')?.addEventListener('click',W.evAddR);
 
   // Login fields
   document.getElementById('l-nombre')?.addEventListener('input',function(){LG.nombre=this.value;document.getElementById('next').disabled=!(LG.nombre.trim()&&LG.apellidos.trim())});
@@ -857,7 +1201,9 @@ function bind(){
 
   // Student home
   document.getElementById('btn-logout')?.addEventListener('click',()=>{ALUMNO=null;ALUMNO_CLASES=[];go('splash')});
-  document.getElementById('btn-edit')?.addEventListener('click',()=>{editarPeticion()});
+  document.getElementById('btn-edit')?.addEventListener('click',()=>{go('stu-edit')});
+  document.getElementById('edit-subs')?.addEventListener('click',()=>W.editSubs());
+  document.getElementById('edit-disp')?.addEventListener('click',()=>W.editDisp());
 
   // Fin wizard
   const acc=document.getElementById('chk-acc');const abox=document.getElementById('acc-box');
@@ -867,6 +1213,7 @@ function bind(){
     acc.addEventListener('change',uA);
   }
   document.getElementById('btn-save')?.addEventListener('click',saveToSupabase);
+  document.getElementById('btn-save-disp')?.addEventListener('click',saveDisp);
   document.getElementById('btn-share')?.addEventListener('click',()=>{if(navigator.share)navigator.share({text:S.msg}).catch(()=>{});else copyMsg(S.msg)});
 
   // Admin login
@@ -881,11 +1228,11 @@ function bind(){
   document.getElementById('s-search')?.addEventListener('input',function(){ASRCH=this.value;R()});
 
   // Admin new class
-  document.getElementById('nc-sub')?.addEventListener('change',function(){ANC.sid=this.value;ANC.topic='';R()});
-  document.getElementById('nc-top')?.addEventListener('change',function(){ANC.topic=this.value});
-  document.getElementById('nc-dt')?.addEventListener('change',function(){ANC.date=this.value});
-  document.getElementById('nc-hr')?.addEventListener('change',function(){ANC.hour=parseInt(this.value)});
+  document.getElementById('nc-top')?.addEventListener('change',function(){W.ncTop(this.value)});
+  document.getElementById('nc-dt')?.addEventListener('change',function(){ANC.date=this.value;if(ANC.topic)W.ncTop(ANC.topic);else W.ncCheck()});
+  document.getElementById('nc-hr')?.addEventListener('change',function(){ANC.hour=timeToH(this.value);if(ANC.topic&&ANC.date)W.ncCheck()});
   document.getElementById('nc-rm')?.addEventListener('change',function(){ANC.room=this.value});
+  if(ANEW&&ANC.topic&&ANC.date)setTimeout(W.ncCheck,50);
 
   // Admin send
   document.getElementById('sd-stu')?.addEventListener('change',function(){ASTU=this.value;renderSP()});
@@ -911,7 +1258,7 @@ function bind(){
 
 // ═══ WIZARD LOGIC ═══
 function startWizard(){
-  S={step:0,subs:[],data:{},tabs:{},openDay:{},accepted:false,msg:''};
+  S={step:0,subs:[],data:{},tabs:{},openDay:{},accepted:false,msg:'',evCur:0,eventos:mkEventos(),editMode:null};
   go('wizard');
 }
 
@@ -934,6 +1281,18 @@ function genMsg(){
       if(d.blockNote)m+=`  📝 ${d.blockNote}\n`;
     } else m+=`✅ Disponibilidad total\n`;
   });
+  const CL={skip:'podría no ir al evento',impossible:'imposible faltar',depends:'depende del repaso'};
+  const evAct=(S.eventos||[]).filter(e=>e.activo&&e.rangos.length);
+  if(evAct.length){
+    m+=`\n📅 DISPONIBILIDAD\n`;
+    evAct.forEach(e=>{
+      m+=`${e.ico} ${e.id.charAt(0).toUpperCase()+e.id.slice(1)}:\n`;
+      e.rangos.forEach(r=>{const d1=new Date(r.fi+'T12:00:00');const d2=r.ff&&r.ff!==r.fi?new Date(r.ff+'T12:00:00'):null;m+=`  📅 ${d1.getDate()}/${d1.getMonth()+1}${d2?' → '+d2.getDate()+'/'+(d2.getMonth()+1):''} · ${r.hd}h–${r.hh}h\n`});
+      if(e.compromiso)m+=`  → Si coincide con repaso: ${CL[e.compromiso]||e.compromiso}\n`;
+    });
+  } else {
+    m+=`\n📅 DISPONIBILIDAD: Sin eventos programados\n`;
+  }
   m+=`\n✅ ACEPTO las condiciones\n━━━━━━━━━━━━━━━━━━━━`;
   S.msg=m;
 }
@@ -954,9 +1313,22 @@ async function saveToSupabase(){
     }
     // Delete old peticiones and insert new
     await db.from('peticiones').delete().eq('alumno_id',alumnoId);
+    // If editing only subjects, preserve existing availability data
+    let blkH,notaBloqueo0;
+    if(S.editMode==='subs'&&ALUMNO){
+      const oldPed=(ALUMNO.peticiones||[])[0];
+      blkH=oldPed?.horas_bloqueadas||[];
+      notaBloqueo0=oldPed?.nota_bloqueo||null;
+    } else {
+      blkH=eventoToBlocked(S.eventos);
+      notaBloqueo0=JSON.stringify({v:1,eventos:S.eventos});
+    }
+    let evIdx=0;
     for(const sid of S.subs){
       const d=S.data[sid];
-      await db.from('peticiones').insert({alumno_id:alumnoId,asignatura_id:sid,temas:d.topics,horas_bloqueadas:d.blocked,fecha_examen:d.finalDate||null,es_ebau:d.ebau,fecha_estimada:d.estimated,semana_hint:d.weekHint||null,nota_bloqueo:d.blockNote||null});
+      const nota=evIdx===0?notaBloqueo0:null;
+      await db.from('peticiones').insert({alumno_id:alumnoId,asignatura_id:sid,temas:d.topics,horas_bloqueadas:blkH,fecha_examen:d.finalDate||null,es_ebau:d.ebau,fecha_estimada:d.estimated,semana_hint:d.weekHint||null,nota_bloqueo:nota});
+      evIdx++;
     }
     showOv(false);
     toast('✅ Petición guardada',true);
@@ -966,17 +1338,72 @@ async function saveToSupabase(){
   }
 }
 
-function editarPeticion(){
-  // Reload wizard with existing data
-  S={step:0,subs:[],data:{},tabs:{},openDay:{},accepted:false,msg:''};
+function _cargarDatosAlumno(){
   const peds=ALUMNO.peticiones||[];
+  let evCargados=mkEventos();
+  if(peds[0]?.nota_bloqueo){try{const p=JSON.parse(peds[0].nota_bloqueo);if(p.v&&p.eventos)evCargados=p.eventos;}catch(e){}}
+  S.subs=[];S.data={};S.tabs={};S.openDay={};S.eventos=evCargados;S.accepted=false;S.msg='';S.evCur=0;
   peds.forEach(p=>{
     S.subs.push(p.asignatura_id);
-    S.data[p.asignatura_id]={ebau:p.es_ebau,finalDate:p.fecha_examen||'',estimated:p.fecha_estimada,weekHint:p.semana_hint||'',topics:p.temas||[],blocked:p.horas_bloqueadas||[],blockNote:p.nota_bloqueo||''};
+    S.data[p.asignatura_id]={ebau:p.es_ebau,finalDate:p.fecha_examen||'',estimated:p.fecha_estimada,weekHint:p.semana_hint||'',topics:p.temas||[],blocked:p.horas_bloqueadas||[],blockNote:''};
     S.tabs[p.asignatura_id]='topics';S.openDay[p.asignatura_id]=null;
   });
   REG.nombre=ALUMNO.nombre;REG.apellidos=ALUMNO.apellidos;REG.telefono=ALUMNO.telefono||'';REG.centro=ALUMNO.centro||'';REG.esExterno=ALUMNO.es_externo;REG.prefConcentrar=ALUMNO.prefiere_concentrar;REG.pin=ALUMNO.pin;
+}
+function editarPeticion(){
+  S={step:0,subs:[],data:{},tabs:{},openDay:{},accepted:false,msg:'',evCur:0,eventos:mkEventos(),editMode:null};
+  _cargarDatosAlumno();
   go('wizard');
+}
+W.editSubs=function(){
+  S={step:0,subs:[],data:{},tabs:{},openDay:{},accepted:false,msg:'',evCur:0,eventos:mkEventos(),editMode:'subs'};
+  _cargarDatosAlumno();
+  go('wizard');
+};
+W.editDisp=function(){
+  S={step:0,subs:[],data:{},tabs:{},openDay:{},accepted:false,msg:'',evCur:0,eventos:mkEventos(),editMode:'disp'};
+  _cargarDatosAlumno();
+  go('wizard');
+};
+function finDispH(){
+  const evAct=(S.eventos||[]).filter(e=>e.activo&&e.rangos.length);
+  const CL={skip:'podría no ir al evento',impossible:'imposible faltar',depends:'depende del repaso'};
+  return`<div class="c" style="min-height:100dvh;padding-bottom:100px"><div class="hdr"><button id="back">← Atrás</button><span>Confirmar disponibilidad</span></div>
+<div class="fu" style="padding-top:16px">
+<div style="text-align:center;margin-bottom:20px">
+<div style="font-size:44px;margin-bottom:8px">📅</div>
+<h2 style="font-family:'Playfair Display',serif;font-size:22px;color:var(--gold2);margin-bottom:4px">Tu disponibilidad</h2>
+<p style="font-size:13px;color:var(--t2)">${evAct.length?evAct.length+' evento(s) registrado(s)':'Sin eventos — disponibilidad total'}</p>
+</div>
+${evAct.length?evAct.map(e=>`<div style="padding:14px;border-radius:12px;border:1px solid var(--brd);background:var(--card);margin-bottom:10px">
+<div style="font-size:15px;font-weight:600;margin-bottom:8px">${e.ico} ${e.id.charAt(0).toUpperCase()+e.id.slice(1)}</div>
+${e.rangos.map(r=>{const d1=new Date(r.fi+'T12:00:00');const d2=r.ff&&r.ff!==r.fi?new Date(r.ff+'T12:00:00'):null;return`<div style="font-size:12px;color:var(--t2);margin-bottom:3px">📅 ${d1.getDate()}/${d1.getMonth()+1}${d2?' → '+d2.getDate()+'/'+(d2.getMonth()+1):''} · ${r.hd}h–${r.hh}h</div>`}).join('')}
+${e.compromiso?`<div style="font-size:12px;color:var(--warn);margin-top:6px">→ ${CL[e.compromiso]}</div>`:''}
+</div>`).join(''):`<div style="text-align:center;padding:24px;color:var(--t3);font-size:14px">✅ Sin incompatibilidades registradas</div>`}
+</div>
+<div class="ftr"><div class="c"><button class="btn" id="btn-save-disp">GUARDAR MI DISPONIBILIDAD ✓</button></div></div>`;
+}
+async function saveDisp(){
+  showOv(true,'Guardando disponibilidad...');
+  try{
+    const blkH=eventoToBlocked(S.eventos);
+    const nota=JSON.stringify({v:1,eventos:S.eventos});
+    const alumnoId=ALUMNO.id;
+    const peds=ALUMNO.peticiones||[];
+    for(let i=0;i<peds.length;i++){
+      const notaVal=i===0?nota:null;
+      await db.from('peticiones').update({horas_bloqueadas:blkH,nota_bloqueo:notaVal}).eq('id',peds[i].id);
+    }
+    // Reload alumno data
+    const {data}=await db.from('alumnos').select('*, peticiones(*)').eq('id',alumnoId).single();
+    if(data)ALUMNO=data;
+    showOv(false);
+    toast('✅ Disponibilidad guardada',true);
+    go('stu-home');
+  } catch(e){
+    showOv(false);
+    toast('Error al guardar: '+e.message);
+  }
 }
 
 // ═══ SUPABASE OPS ═══
