@@ -1606,20 +1606,23 @@ async function saveDisp(){
 // ═══ SUPABASE OPS ═══
 async function doLogin(){
   showOv(true,'Verificando...');
-  const {data,error}=await db.from('alumnos').select('*, peticiones(*)').eq('nombre',LG.nombre).eq('apellidos',LG.apellidos).eq('pin',LG.pinBuf).maybeSingle();
-  if(error||!data){
+  // Paso 1: autenticar (solo alumnos, sin join)
+  const {data:alumnoBase,error:errAuth}=await db.from('alumnos').select('*').eq('nombre',LG.nombre).eq('apellidos',LG.apellidos).eq('pin',LG.pinBuf).maybeSingle();
+  if(errAuth||!alumnoBase){
     showOv(false);
     document.getElementById('pin-err').textContent='PIN incorrecto o datos no encontrados';
     LG.pinBuf='';
     document.querySelectorAll('.pin-dot').forEach(d=>d.classList.remove('filled'));
     return;
   }
-  ALUMNO=data;
-  // Load classes and config for this student
-  const [inscRes,cfgRows]=await Promise.all([
-    db.from('inscripciones').select('clase_id').eq('alumno_id',ALUMNO.id),
+  // Paso 2: cargar peticiones, clases e inscripciones, y config en paralelo
+  const [pedRes,inscRes,cfgRows]=await Promise.all([
+    db.from('peticiones').select('*').eq('alumno_id',alumnoBase.id),
+    db.from('inscripciones').select('clase_id').eq('alumno_id',alumnoBase.id),
     db.from('config').select('*').in('clave',['horarios_visibles','precios_visibles'])
   ]);
+  alumnoBase.peticiones=pedRes.data||[];
+  ALUMNO=alumnoBase;
   const claseIds=inscRes.data?.map(i=>i.clase_id)||[];
   const {data:clases}=claseIds.length?await db.from('clases').select('*, inscripciones(*)').in('id',claseIds):{data:[]};
   ALUMNO_CLASES=clases||[];
