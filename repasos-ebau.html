@@ -114,6 +114,7 @@ let AT='alumnos',ADATE=DT[0],ASTU='',ANEW=false,ANC={sid:'fisica',topic:'',date:
 let AORG_FAILURES=[];
 let AEDIT=false,AMSG_TYPE='simple',AEXP_CLS={};
 let STU_HORARIOS_VIS=false;
+let STU_PRECIOS_VIS=false;
 // ═══ THEME ═══
 (function(){const t=localStorage.getItem('ebau_theme');if(t==='light')document.body.classList.add('light');updateThemeBtn()})();
 function updateThemeBtn(){const b=document.getElementById('theme-toggle');if(b)b.textContent=document.body.classList.contains('light')?'☀️':'🌙'}
@@ -552,7 +553,6 @@ ${evAct?`${evAct} evento(s) ya registrado(s) — actualizar o completar`:'Sin ev
 }
 
 function stuClasesH(){
-  let total=0;
   const bySubj={};
   ALUMNO_CLASES.forEach(c=>{
     if(!bySubj[c.asignatura_id])bySubj[c.asignatura_id]=[];
@@ -565,19 +565,15 @@ function stuClasesH(){
     cls.sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.hora_inicio-b.hora_inicio).forEach(c=>{
       const insc=c.inscripciones||[];
       const myInsc=insc.find(i=>i.alumno_id===ALUMNO.id);
-      const nStu=insc.length;
-      const ph=myInsc?myInsc.precio_hora:(ALUMNO.es_externo?tarifaExt(nStu):tarifa(nStu));
-      const pt=myInsc?myInsc.precio_total:Math.round(ph*(c.duracion_horas||2)*100)/100;
-      total+=pt;
+      const ph=myInsc?myInsc.precio_hora:(ALUMNO.es_externo?tarifaExt(insc.length):tarifa(insc.length));
       h+=`<div style="padding:10px;border-radius:10px;background:var(--card2);margin-bottom:6px">
 <div style="font-weight:600;font-size:13px">${c.tema}</div>
 <div style="font-size:12px;color:var(--t2);margin-top:2px">${fl(c.fecha)} · ${hToTime(c.hora_inicio)} · ${fmtDur(c.duracion_horas||2)}</div>
-<div style="font-size:12px;color:var(--gold);margin-top:2px;font-weight:600">${pt}€ esta clase (${nStu} alum. → ${ph}€/h)</div>
+${STU_PRECIOS_VIS?`<div style="font-size:12px;color:var(--gold);margin-top:2px;font-weight:600">${ph}€/h</div>`:''}
 </div>`;
     });
     h+=`</div>`;
   });
-  h+=`<div style="border-top:1px solid var(--brd);padding-top:10px;text-align:right;font-weight:700;color:var(--gold2)">Total estimado: ${total}€</div>`;
   return h;
 }
 
@@ -607,19 +603,16 @@ function stuHorarioH(){
       h+=`<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--t2);margin-bottom:5px;padding-left:4px">${fl(dt)}</div>`;
       byDate[dt].forEach(c=>{
         const sub=SJ.find(s=>s.id===c.asignatura_id);
-        const insc=c.inscripciones||[];const nStu=insc.length;
+        const insc=c.inscripciones||[];
         const myInsc=insc.find(i=>i.alumno_id===ALUMNO.id);
-        const ph=myInsc?myInsc.precio_hora:(ALUMNO.es_externo?tarifaExt(nStu):tarifa(nStu));
+        const ph=myInsc?myInsc.precio_hora:(ALUMNO.es_externo?tarifaExt(insc.length):tarifa(insc.length));
         h+=`<div style="padding:10px 12px;border-radius:10px;background:${sub?.bg||'var(--card2)'};border:1px solid ${sub?.a||'var(--brd)'}20;margin-bottom:5px;display:flex;align-items:center;gap:10px">
 <div style="font-size:24px;flex-shrink:0">${sub?.e||'📚'}</div>
 <div style="flex:1;min-width:0">
 <div style="font-weight:700;font-size:13px;color:${sub?.a||'var(--t)'};margin-bottom:2px">${esc(c.tema)}</div>
 <div style="font-size:11px;color:var(--t2)">${hToTime(c.hora_inicio)} · ${fmtDur(c.duracion_horas||2)}</div>
 </div>
-<div style="text-align:right;flex-shrink:0">
-<div style="font-size:11px;font-weight:700;color:var(--gold)">${ph}€/h</div>
-<div style="font-size:10px;color:var(--t3)">${nStu} alum.</div>
-</div>
+${STU_PRECIOS_VIS?`<div style="text-align:right;flex-shrink:0"><div style="font-size:11px;font-weight:700;color:var(--gold)">${ph}€/h</div></div>`:''}
 </div>`;
       });
       h+=`</div>`;
@@ -863,6 +856,7 @@ function admConfig(){
   const edAct=AD.config.edicion_activa!=='false';
   const fLim=AD.config.fecha_limite||'2026-03-26';
   const horVis=AD.config.horarios_visibles==='true';
+  const preciosVis=AD.config.precios_visibles==='true';
   return`<div class="fu"><h2 style="font-family:'Playfair Display',serif;font-size:17px;color:var(--gold2);margin-bottom:14px">Configuración</h2>
 
 <div style="background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--brd);margin-bottom:10px">
@@ -877,6 +871,13 @@ function admConfig(){
 <div><div style="font-weight:600;font-size:14px">Cronograma visible para alumnos</div>
 <div style="font-size:12px;color:var(--t2)">Los alumnos ven su horario de clases por semanas</div></div>
 <button onclick="W.togHorVis(${!horVis})" style="padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;background:${horVis?'rgba(34,197,94,.15)':'rgba(239,68,68,.1)'};color:${horVis?'var(--grn)':'var(--red)'}">${horVis?'✅ ON':'❌ OFF'}</button>
+</div></div>
+
+<div style="background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--brd);margin-bottom:10px">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<div><div style="font-weight:600;font-size:14px">Precio €/h visible para alumnos</div>
+<div style="font-size:12px;color:var(--t2)">Muestra el precio por hora en el área del alumno. Sin nº alumnos ni totales.</div></div>
+<button onclick="W.togPreciosVis(${!preciosVis})" style="padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;background:${preciosVis?'rgba(34,197,94,.15)':'rgba(239,68,68,.1)'};color:${preciosVis?'var(--grn)':'var(--red)'}">${preciosVis?'✅ ON':'❌ OFF'}</button>
 </div></div>
 
 <div style="background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--brd);margin-bottom:14px">
@@ -976,6 +977,10 @@ W.setMsgType=function(t){AMSG_TYPE=t;R();setTimeout(renderSP,50)};
 W.togHorVis=async function(val){
   await db.from('config').upsert({clave:'horarios_visibles',valor:val?'true':'false'});
   AD.config.horarios_visibles=val?'true':'false';R();toast(val?'Cronograma visible para alumnos':'Cronograma oculto',val);
+};
+W.togPreciosVis=async function(val){
+  await db.from('config').upsert({clave:'precios_visibles',valor:val?'true':'false'});
+  AD.config.precios_visibles=val?'true':'false';R();toast(val?'Precio €/h visible para alumnos':'Precio oculto para alumnos',val);
 };
 W.togEdit=async function(id,val){
   await db.from('alumnos').update({puede_editar:val}).eq('id',id);
@@ -1611,14 +1616,16 @@ async function doLogin(){
   }
   ALUMNO=data;
   // Load classes and config for this student
-  const [inscRes,cfgRes]=await Promise.all([
+  const [inscRes,cfgRows]=await Promise.all([
     db.from('inscripciones').select('clase_id').eq('alumno_id',ALUMNO.id),
-    db.from('config').select('*').eq('clave','horarios_visibles').maybeSingle()
+    db.from('config').select('*').in('clave',['horarios_visibles','precios_visibles'])
   ]);
   const claseIds=inscRes.data?.map(i=>i.clase_id)||[];
   const {data:clases}=claseIds.length?await db.from('clases').select('*, inscripciones(*)').in('id',claseIds):{data:[]};
   ALUMNO_CLASES=clases||[];
-  STU_HORARIOS_VIS=cfgRes.data?.valor==='true';
+  const cfgMap={};(cfgRows.data||[]).forEach(r=>cfgMap[r.clave]=r.valor);
+  STU_HORARIOS_VIS=cfgMap.horarios_visibles==='true';
+  STU_PRECIOS_VIS=cfgMap.precios_visibles==='true';
   showOv(false);go('stu-home');
 }
 
