@@ -112,7 +112,7 @@ let ADMIN=false;
 let AD={alumnos:[],clases:[],config:{}};
 let AT='alumnos',ADATE=DT[0],ASTU='',ANEW=false,ANC={sid:'fisica',topic:'',date:'',hour:16,room:'fondo',selStudents:[]},ASRCH='',AEXP={};
 let AORG_FAILURES=[];
-let AEDIT=false,AMSG_TYPE='simple',AEXP_CLS={};
+let AEDIT=false,AMSG_TYPE='simple',AEXP_CLS={},SEND_MSG='';
 let STU_HORARIOS_VIS=false;
 let STU_PRECIOS_VIS=false;
 // ═══ THEME ═══
@@ -911,6 +911,7 @@ function renderSP(){
   const sc=AD.clases.filter(c=>(c.inscripciones||[]).some(i=>i.alumno_id===ASTU)).sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.hora_inicio-b.hora_inicio);
   if(!sc.length){el.innerHTML=`<div style="color:var(--t3);font-size:12px;text-align:center;padding:12px">Sin clases asignadas aún</div>`;return}
   const bs={};sc.forEach(c=>{const s=SJ.find(x=>x.id===c.asignatura_id);if(!bs[s?.n||c.asignatura_id])bs[s?.n||c.asignatura_id]=[];bs[s?.n||c.asignatura_id].push(c)});
+  function flMsg(d){const x=new Date(d+'T12:00:00');const day=DN[x.getDay()];return '*'+day.charAt(0).toUpperCase()+day.slice(1)+' '+x.getDate()+'/'+(x.getMonth()+1)+'*'}
   let m='';
   if(AMSG_TYPE==='simple'){
     m=`🎓 *REPASOS EBAU - Coco Sapiens*\n\nHola ${st.nombre}, tus clases:\n`;
@@ -918,10 +919,10 @@ function renderSP(){
       m+=`\n📚 *${n}*\n`;
       cls.forEach(c=>{
         const dur=c.duracion_horas||2;
-        m+=`  📅 ${fl(c.fecha)} · ${hToTime(c.hora_inicio)} · ${fmtDur(dur)}\n     ${c.tema}\n`;
+        m+=`  📝 ${flMsg(c.fecha)} · ${hToTime(c.hora_inicio)} · ${fmtDur(dur)}\n     ${c.tema}\n`;
       });
     });
-    m+=`\n⚠️ Horarios firmes. ¿Confirmas? *SÍ* 🙏`;
+    m+=`\n⚠️ Horarios firmes.`;
   } else {
     let total=0;
     m=`🎓 *REPASOS EBAU - Coco Sapiens*\n\nHola ${st.nombre}, tus clases:\n`;
@@ -931,15 +932,16 @@ function renderSP(){
         const insc=c.inscripciones||[];const nStu=insc.length;
         const rate=st.es_externo?tarifaExt(nStu):tarifa(nStu);
         const dur=c.duracion_horas||2;const cost=Math.round(rate*dur*100)/100;total+=cost;
-        m+=`  📅 ${fl(c.fecha)} · ${hToTime(c.hora_inicio)} · ${fmtDur(dur)}\n     ${c.tema} (${nStu} alum. → ${rate}€/h)\n     Importe: ${cost}€\n`;
+        m+=`  📝 ${flMsg(c.fecha)} · ${hToTime(c.hora_inicio)} · ${fmtDur(dur)}\n     ${c.tema} (${nStu} alum. → ${rate}€/h)\n     Importe: ${cost}€\n`;
       });
     });
     m+=`\n━━━━━━━━━━━━━━━━━━━━\n💰 *TOTAL: ${total}€*\n\n⚠️ Horarios firmes. ¿Confirmas? *SÍ* 🙏`;
   }
+  SEND_MSG=m;
   el.innerHTML=`<div style="background:var(--card);border-radius:10px;padding:10px;border:1px solid var(--brd);margin-bottom:8px;max-height:260px;overflow-y:auto">
 <pre style="white-space:pre-wrap;font-size:11px;line-height:1.5;font-family:inherit;color:var(--t2);margin:0">${esc(m)}</pre></div>
-<button class="btn" style="margin-bottom:6px" onclick="copyMsg(${JSON.stringify(m).replace(/</g,'\\u003c')})">📋 COPIAR</button>
-<button class="btn btn-w" onclick="shareMsg(${JSON.stringify(m).replace(/</g,'\\u003c')})">💬 COMPARTIR</button>`;
+<button class="btn" style="margin-bottom:6px" onclick="copyMsg(SEND_MSG)">📋 COPIAR</button>
+<button class="btn btn-w" onclick="shareMsg(SEND_MSG)">💬 COMPARTIR</button>`;
 }
 function copyMsg(m){navigator.clipboard.writeText(m).then(()=>toast('¡Copiado!',true)).catch(()=>{const t=document.createElement('textarea');t.value=m;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();toast('¡Copiado!',true)})}
 function shareMsg(m){if(navigator.share)navigator.share({text:m}).catch(()=>{});else copyMsg(m)}
