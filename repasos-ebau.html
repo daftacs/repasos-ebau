@@ -932,10 +932,10 @@ function renderSP(){
         const insc=c.inscripciones||[];const nStu=insc.length;
         const rate=st.es_externo?tarifaExt(nStu):tarifa(nStu);
         const dur=c.duracion_horas||2;const cost=Math.round(rate*dur*100)/100;total+=cost;
-        m+=`  📝 ${flMsg(c.fecha)} · ${hToTime(c.hora_inicio)} · ${fmtDur(dur)}\n     ${c.tema} (${nStu} alum. → ${rate}€/h)\n     Importe: ${cost}€\n`;
+        m+=`  📝 ${flMsg(c.fecha)} · ${hToTime(c.hora_inicio)} a ${hToTime(c.hora_inicio+dur)}\n     ${c.tema} (${fmtDur(dur)} → ${rate}€/h)\n     Importe: ${cost}€\n`;
       });
     });
-    m+=`\n━━━━━━━━━━━━━━━━━━━━\n💰 *TOTAL: ${total}€*\n\n⚠️ Horarios firmes. ¿Confirmas? *SÍ* 🙏`;
+    m+=`\n━━━━━━━━━━━━━━━━━━━━\n💰 *TOTAL: ${total}€*\n\nMuchísimas gracias por vuestra confianza! Esperamos que los repasos sean de gran ayuda para su preparación.`;
   }
   SEND_MSG=m;
   el.innerHTML=`<div style="background:var(--card);border-radius:10px;padding:10px;border:1px solid var(--brd);margin-bottom:8px;max-height:260px;overflow-y:auto">
